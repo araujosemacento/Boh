@@ -2,13 +2,15 @@ import os, time, sys, re, keyboard
 
 
 def main():
-    talk("Segue o líder")
+    talk("Oi, tudo bem?")
+    talk("Muito obrigado por executar o meu script")
+    # talk(f"Eu me chamo {colors.bold}{colors.}{}{}")
     print("\n\nPressione qualquer tecla para continuar...", end="")
     if keyboard.read_key():
         exit()
 
 
-def talk(input="", expression="idle", ending="pause", amount=1, static=""):
+def talk(input="", expression="idle", ending="pause", amount=1.25, static=""):
     ansi_pattern = r"\033\[[0-9;]*m"
 
     # Extrair texto limpo (sem códigos ANSI [o código que deixa os caracteres coloridos, consulte a classe colors no fim do código pra consultar os literais e a correlação à cor em inglês])
@@ -92,6 +94,7 @@ def talk(input="", expression="idle", ending="pause", amount=1, static=""):
 
         # Isso aqui é um print, só que mais rápido, como se usasse o "echo" do terminal (sqn)
         sys.stdout.write(f"{current_expr}   ┤ {output_text} │")
+        sys.stdout.flush()  # É o equivalente de print("string", flush=True). Caso você não sabe o que isso faz, sorte a sua. Mas basicamente, sem isso a tela fica preta até o loop acabar e só depois que o loop acaba o texto aparece
 
         sys.stdout.write(f"{static}")
 
