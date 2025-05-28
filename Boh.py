@@ -1,17 +1,13 @@
 from sys import exit as sys_exit
 from subprocess import run
 from importlib.util import find_spec
+import re
 
 
-def check_dependencies():
-    required_modules = ["blessed", "keyboard"]
-    missing_modules = []
+def check_dependencies() -> None:
+    module = "blessed"
 
-    for module in required_modules:
-        if find_spec(module) is None:
-            missing_modules.append(module)
-
-    if missing_modules:
+    if find_spec(module) is None:
         try:
             import tkinter as tk
             from tkinter import messagebox
@@ -19,24 +15,26 @@ def check_dependencies():
             root = tk.Tk()
             root.withdraw()
 
-            message = f"Os seguintes módulos não estão instalados:\n{', '.join(missing_modules)}\n\nDeseja instalá-los automaticamente?"
+            message = f"Oi, tudo bem?\nEntão, o Boh meio que precisa\ndesse módulo pra te entender\ne ficar bonitinho\n conversando com você:\n\n{module}\n\nQuer que eu instale ele por você?"
 
             result = messagebox.askyesno("Dependências Faltando", message)
 
             if result:
-                cmd = f"pip install {' '.join(missing_modules)}"
-                print(f"Executando: {cmd}")
+                cmd = f"pip install {' '.join(module)}"
+                print(f"\033[31mShow de Bola!\033[0m Executando: {cmd}\n")
                 run(cmd, shell=True)
-                print("Reinicie o script após a instalação.")
+                print("\n\033[34mReinicie o script após a instalação, beleza?\033[0m")
             else:
-                print("Instalação cancelada.")
+                print(
+                    "\n\033[31mInstalação cancelada :(\033[0m\nSe quiser instalar depois, por conta própria,\nexecute:\n\n\033[34mpip install {module}\033[0m\n"
+                )
 
             root.destroy()
             sys_exit()
 
         except ImportError:
-            print(f"Módulos faltando: {', '.join(missing_modules)}")
-            print(f"Execute: pip install {' '.join(missing_modules)}")
+            print(f"Módulos faltando: {', '.join(module)}")
+            print(f"Execute: pip install {' '.join(module)}")
             sys_exit()
 
 
@@ -44,18 +42,101 @@ check_dependencies()
 
 from time import sleep
 from blessed import Terminal
-from keyboard import read_key
-from re import sub, match
 
 term = Terminal()
+
+
+def parse_formatted_text(text):
+    # Padrão para encontrar códigos ANSI (somente cores e formatação tipográfica)
+    ansi_pattern = r"\033\[[0-9;]*m"
+
+    result = []
+    current_format = ""
+    i = 0
+
+    while i < len(text):
+        # Verifica se encontrou um código ANSI
+        ansi_match = re.match(ansi_pattern, text[i:])
+        if ansi_match:
+            ansi_code = ansi_match.group()
+            if ansi_code == "\033[0m":
+                current_format = ""
+            else:
+                current_format += ansi_code
+            i += len(ansi_code)
+        else:
+            # Adiciona o caractere com sua formatação atual
+            char = text[i]
+            if char != " " or current_format:  # Preserva espaços formatados
+                formatted_char = (
+                    current_format + char + ("\033[0m" if current_format else "")
+                )
+                result.append(formatted_char)
+            else:
+                result.append(char)
+            i += 1
+
+    return result
+
+
+def talk(input=" ", expression="idle", amount=1.0, static=""):
+    if input == " ":
+        remaining = list(input)
+        displayed = []
+    else:
+        parsed_chars = parse_formatted_text(input)
+        remaining = parsed_chars.copy()
+        displayed = []
+
+    expressions = {
+        "idle": [
+            "[ ▀ ¸ ▀]",
+            "[ ▀ ° ▀]",
+            "[ ▀ ■ ▀]",
+            "[ ▀ ─ ▀]",
+            "[ ▀ ~ ▀]",
+            "[ ▀ ▄ ▀]",
+            "[ ▀ ¬ ▀]",
+            "[ ▀ · ▀]",
+            "[ ▀ _ ▀]",
+        ],
+        "pokerface": ["[ ▀ ‗ ▀]", "[ ▀ ¯ ▀]", "[ ▀ ¡ ▀]"],
+        "thinking": ["[ ─ ´ ─]", "[ ─ » ─]"],
+        "open mouth": ["[ ▀ ß ▀]", "[ ▀ █ ▀]"],
+        "annoyed": ["[ ▀ ı ▀]", "[ ▀ ^ ▀]"],
+        "looking down": ["[ ▄ . ▄]", "[ ▄ _ ▄]", "[ ▄ ₒ ▄]", "[ ▄ ‗ ▄]"],
+    }
+
+    print("\033[1;1H\033[0J", end="")
+
+    while remaining:
+        sleep(0.03)
+        displayed.append(remaining.pop(0))
+
+        expr_list = expressions.get(expression, expressions["idle"])
+        current_expr = expr_list[
+            len(displayed) // (len(expr_list) // 2) % len(expr_list)
+        ]
+
+        print("\033[1;1H\033[0J", end="")
+
+        displayed_text = "".join(displayed) if input != " " else static
+
+        print(
+            f"{current_expr}  ──┤ {displayed_text} │  ",
+            end="",
+            flush=True,
+        )
+        print(f"{static if input != " " else ""}", end="", flush=True)
+
+    sleep(amount)
 
 
 def main():
     list_model = "\n\n\n\n                        None × ↽[H]⇀ ↽[]⇀ ↽[]⇀ ... ↽[]⇀ ↽[]⇀ ↽[T]⇀ × None"
     ask_template = f"\n\n\n\n                    [{term.green}S{term.normal}im]     [{term.red}N{term.normal}ão]"
-    response = False
-    affirmative = ["S", "s", "y", "Y"]
-    negative = ["N", "n"]
+    affirmative = ["s", "y"]
+    negative = ["n"]
 
     with term.fullscreen(), term.cbreak():
         talk("Oi, tudo bem?")
@@ -84,11 +165,10 @@ def main():
         )
         sike = []
         while len(sike) < 4:
-            press = str(read_key(suppress=True)).strip()
-            if press.isalnum() and len(press) == 1:
-                sike.append(press)
+            key_input = term.inkey(timeout=None)
+            if not key_input.is_sequence and key_input.isalnum():
+                sike.append(key_input)
                 print(sike[-1], end="", flush=True)
-                sleep(0.1)
 
         talk(
             "Olha olha olha, na verdade, eu não tenho muito tempo...", "pokerface", 1.5
@@ -113,118 +193,95 @@ def main():
         talk("Já sei!", expression="open mouth")
         talk("Aqui, toma", static=ask_template, amount=1.5)
 
-        while not response:
+        while True:
             talk("Agora sempre que eu te perguntar algo,", static=ask_template)
             talk("Você pode responder digitando", static=ask_template)
             talk("A letra destacada que achar mais cabível.", static=ask_template)
             talk("Entendeu, né?", static=ask_template)
 
-            key = str(read_key(suppress=True)).strip()
-            if key in affirmative:
-                response = True
-                if key in affirmative[2:]:
+            key = term.inkey(timeout=5)
+            if key.lower() in affirmative:
+                if key.lower() == "y":
                     talk(
                         "Sim, inglês também tá valendo...",
                         "pokerface",
                         static=ask_template,
                     )
-                else:
-                    talk("Show de bola!", "open mouth", static=ask_template)
-            elif key in negative:
-                response = False
+                    break
+                talk("Show de bola!", "open mouth", static=ask_template)
+                break
+            elif key.lower() in negative:
                 talk("Não?", "pokerface", static=ask_template)
                 talk("Pera, deixa eu repetir", static=ask_template)
-            elif not key.isalnum() or len(key) != 1:
+            elif key.is_sequence:
                 continue
+            elif not key:
+                talk(
+                    "Poxa, tá difícil assim de encontrar a tecla?",
+                    expression="thinking",
+                    amount=1.5,
+                )
             else:
-                response = False
                 talk(
                     "Oh! Digitou uma letra que eu não pedi! Presta atenção aí, pô!",
                     "annoyed",
                     static=ask_template,
                 )
 
-        print(
-            term.move_yx(term.height - 1, 0)
-            + "Pressione qualquer tecla para continuar...",
-            end="",
+        talk("Enfim, voltando ao assunto...", expression="idle")
+        talk("Reconhece isso aqui, né?")
+        talk(static="Reconhece isso aqui, né?", expression="looking down")
+        print(list_model, flush=True)
+        print(ask_template, flush=True)
+        while True:
+            key = term.inkey(timeout=None)
+            if key.lower() in affirmative:
+                talk(
+                    "Pois é, uma lista.",
+                    static=list_model,
+                )
+                break
+            elif key.lower() in negative:
+                talk("Não?", "open mouth", static=list_model)
+                talk(
+                    "Como assim pô? Me esforcei tanto desenhar ela...",
+                    expression="pokerface",
+                    static=list_model,
+                )
+                talk("É uma lista! A estrutura de dados!", static=list_model)
+                talk("Tá vendo?", static=f"{list_model}{ask_template}")
+            elif key.is_sequence:
+                continue
+            elif not key:
+                talk(
+                    "Poxa, tá difícil assim de encontrar a tecla?",
+                    expression="thinking",
+                    amount=1.5,
+                    static=f"{list_model}{ask_template}",
+                )
+            else:
+                talk(
+                    "Oh! Digitou uma letra que eu não pedi! Presta atenção aí, pô!",
+                    "annoyed",
+                    static=f"{list_model}{ask_template}",
+                )
+        talk(
+            "Bom, como você já sabe... a lista é uma estrutura de dados",
+            static=list_model,
         )
-        if read_key(suppress=True):
+        talk(
+            "Mas tô aqui pra discutir um desafio específico relacionado a ela...",
+            static=list_model,
+        )
+        talk("O desafio é o seguinte:", expression="thinking", static=list_model)
+        talk("Que tal inverter uma lista?", expression="open mouth", static=list_model)
+        talk(
+            "Ou melhor, qual seria a maneira mais eficiente de fazer isso?",
+            static=list_model,
+        )
+
+        if term.inkey(timeout=None):
             return
-
-
-def talk(input=" ", expression="idle", amount=1.0, static=""):
-    ansi_pattern = r"\033\[[0-9;]*m|\033\[[0-9]*[A-Za-z]"
-
-    clean_text = sub(ansi_pattern, "", input)
-
-    effect_positions = {}
-    clean_pos = 0
-    active_effects = []
-    i = 0
-
-    while i < len(input):
-        ansi_match = match(ansi_pattern, input[i:])
-        if ansi_match:
-            ansi_code = ansi_match.group()
-            if ansi_code == term.normal:
-                active_effects.clear()
-            else:
-                active_effects.append(ansi_code)
-            i += len(ansi_code)
-        else:
-            if active_effects:
-                effect_positions[clean_pos] = "".join(active_effects)
-            clean_pos += 1
-            i += 1
-
-    remaining = list(clean_text)
-    displayed = []
-
-    expressions = {
-        "idle": [
-            "[ ▀ ¸ ▀]",
-            "[ ▀ ° ▀]",
-            "[ ▀ ■ ▀]",
-            "[ ▀ ─ ▀]",
-            "[ ▀ ~ ▀]",
-            "[ ▀ ▄ ▀]",
-            "[ ▀ ¬ ▀]",
-            "[ ▀ · ▀]",
-            "[ ▀ _ ▀]",
-        ],
-        "pokerface": ["[ ▀ ‗ ▀]", "[ ▀ ¯ ▀]", "[ ▀ ¡ ▀]"],
-        "thinking": ["[ ─ ´ ─]", "[ ─ » ─]"],
-        "open mouth": ["[ ▀ ß ▀]", "[ ▀ █ ▀]"],
-        "annoyed": ["[ ▀ ı ▀]", "[ ▀ ^ ▀]"],
-        "looking down": ["[ ▄ . ▄]", "[ ▄ _ ▄]", "[ ▄ ₒ ▄]", "[ ▄ ‗ ▄]"],
-    }
-
-    print(term.home + "\033[1;1H\033[0J", end="")
-
-    while remaining:
-        sleep(0.03)
-        displayed.append(remaining.pop(0))
-
-        output_text = ""
-        for i, char in enumerate(displayed):
-            if i in effect_positions:
-                output_text += f"{effect_positions[i]}{char}{term.normal}"
-            else:
-                output_text += char
-
-        expr_list = expressions.get(expression, expressions["idle"])
-        current_expr = expr_list[
-            len(displayed) // (len(expr_list) // 2) % len(expr_list)
-        ]
-
-        print(term.home + "\033[1;1H\033[0J", end="")
-        print(
-            f"{current_expr}  ──┤ {output_text if input != " " else static} │  ", end=""
-        )
-        print(f"{static if input != " " else ""}", end="", flush=True)
-
-    sleep(amount)
 
 
 if __name__ == "__main__":
