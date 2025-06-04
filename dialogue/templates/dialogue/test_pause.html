@@ -1,0 +1,90 @@
+{% extends 'dialogue/base.html' %}
+{% load static %}
+
+{% block content %}
+  <div class="boh-display">
+    <div class="expression" id="boh-expression">[ ▀ ¸ ▀]</div>
+    <div class="dialogue-container">
+      <span class="dialogue-prefix">──┤</span>
+      <span class="dialogue-text" id="dialogue-text">Pressione ESPAÇO para testar o sistema de pausas</span>
+      <span class="dialogue-suffix">│</span>
+    </div>
+  </div>
+
+  <div class="static-text" id="status" style="color: #0f0; margin-top: 20px;">Status: Aguardando...</div>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    let isTyping = false
+    let isPaused = false
+    let waitingForSpace = false
+    let pauseResolver = null
+    
+    function updateStatus(message) {
+      document.getElementById('status').textContent = 'Status: ' + message
+    }
+    
+    function setupPauseTest() {
+      document.addEventListener('keydown', (event) => {
+        if (event.code === 'Space') {
+          event.preventDefault()
+          updateStatus('Espaço pressionado!')
+    
+          if (waitingForSpace) {
+            waitingForSpace = false
+            isPaused = false
+            if (pauseResolver) {
+              pauseResolver()
+              pauseResolver = null
+            }
+            updateStatus('Continuando...')
+            document.getElementById('dialogue-text').innerHTML = 'Sistema de pausas funcionando! Pressione ESPAÇO novamente para testar'
+            setTimeout(() => startTypingTest(), 1000)
+          } else if (isTyping) {
+            isPaused = true
+            waitingForSpace = true
+            updateStatus('PAUSADO - Pressione ESPAÇO para continuar')
+            document.getElementById('dialogue-text').innerHTML += ' [PAUSADO]'
+          } else {
+            startTypingTest()
+          }
+        }
+      })
+    }
+    
+    async function waitForSpace() {
+      if (!waitingForSpace) return Promise.resolve()
+    
+      return new Promise((resolve) => {
+        pauseResolver = resolve
+      })
+    }
+    
+    async function startTypingTest() {
+      const text = 'Este é um teste do sistema de pausas. Pressione ESPAÇO durante a digitação para pausar.'
+      const element = document.getElementById('dialogue-text')
+    
+      element.innerHTML = ''
+      isTyping = true
+      updateStatus('Digitando... (pressione ESPAÇO para pausar)')
+    
+      for (let i = 0; i < text.length; i++) {
+        if (waitingForSpace) {
+          await waitForSpace()
+        }
+    
+        element.innerHTML += text[i]
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
+    
+      isTyping = false
+      updateStatus('Digitação concluída! Pressione ESPAÇO para testar novamente')
+    }
+    
+    document.addEventListener('DOMContentLoaded', function () {
+      setupPauseTest()
+      updateStatus('Sistema carregado - Pressione ESPAÇO para iniciar teste')
+    })
+  </script>
+{% endblock %}
