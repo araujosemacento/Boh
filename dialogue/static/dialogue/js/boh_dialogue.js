@@ -3,6 +3,34 @@
  * Versão consolidada baseada no _Boh.py original
  */
 
+/**
+ * Classe para selecionar itens aleatórios sem repetição
+ * Mimetiza o comportamento do ShuffledSelector do Python
+ */
+class ShuffledSelector {
+  constructor(items) {
+    this.items = [...items]; // Cria uma cópia da lista de itens
+    this.availableIndices = [...Array(items.length).keys()]; // Índices disponíveis
+  }
+
+  select() {
+    // Se não houver índices disponíveis, recarrega todos
+    if (this.availableIndices.length === 0) {
+      this.availableIndices = [...Array(this.items.length).keys()];
+    }
+
+    // Escolhe um índice aleatório dos disponíveis
+    const randomIndex = Math.floor(Math.random() * this.availableIndices.length);
+    const selectedIndex = this.availableIndices[randomIndex];
+
+    // Remove o índice escolhido da lista de disponíveis
+    this.availableIndices.splice(randomIndex, 1);
+
+    // Retorna o item correspondente ao índice
+    return this.items[selectedIndex];
+  }
+}
+
 class BOHDialogue {
   constructor() {
     // Estado do sistema
@@ -20,15 +48,18 @@ class BOHDialogue {
     this.expressions = {};
     this.listModels = {};
     this.auxArt = {};
-    this.messages = {};
-
-    // Controles de animação
+    this.messages = {};    // Controles de animação
     this.currentTimeout = null;
-    this.currentAudio = null;
+
+    // Sistema de áudio melhorado - mimetizando o comportamento do Python
     this.audioFiles = [];
+    this.audioChannel = null; // Canal único de áudio (similar ao pygame)
+    this.lastSoundTime = null; // Controle de tempo entre sons
+    this.soundCooldown = 300; // 0.3 segundos como no Python
+    this.availableAudioIndices = []; // Para seleção sem repetição (ShuffledSelector)
 
     // Elementos DOM - inicializar após DOM carregar
-    this.elements = {};    // Configurações
+    this.elements = {};// Configurações
     this.config = {
       typingSpeed: 30, // Mais rápido (era 80)
       expressionChangeSpeed: 50, // Mais rápido (era 100)
@@ -101,27 +132,55 @@ class BOHDialogue {
       console.error('Erro ao carregar dados do diálogo:', error);
       throw error;
     }
-  }
-  /**
-   * Pré-carrega arquivos de áudio
+  }  /**
+   * Pré-carrega arquivos de áudio com sistema melhorado
+   * Mimetiza o comportamento do _Boh.py
    */
   async preloadAudio() {
+    // Limpa áudios anteriores se existirem
+    if (this.audioFiles.length > 0) {
+      this.audioFiles.forEach(audio => {
+        try {
+          audio.src = '';
+          audio.load();
+        } catch (error) {
+          // Silencioso - erro esperado em alguns casos
+        }
+      });
+      this.audioFiles.length = 0;
+    }
+
     const audioPromises = [];
 
     for (let i = 1; i <= 8; i++) {
       const audio = new Audio(`${this.config.sfxPath}p03voice_calm%23${i}.wav`);
       audio.preload = 'auto';
       audio.volume = this.config.audioVolume;
+
       this.audioFiles.push(audio);
 
       audioPromises.push(new Promise((resolve) => {
-        audio.addEventListener('canplaythrough', resolve);
-        audio.addEventListener('error', resolve);
+        const handleReady = () => {
+          audio.removeEventListener('canplaythrough', handleReady);
+          audio.removeEventListener('error', handleError);
+          resolve();
+        };
+
+        const handleError = () => {
+          audio.removeEventListener('canplaythrough', handleReady);
+          audio.removeEventListener('error', handleError);
+          resolve(); // Resolve mesmo com erro para não travar
+        };
+
+        audio.addEventListener('canplaythrough', handleReady);
+        audio.addEventListener('error', handleError);
       }));
     }
 
     await Promise.all(audioPromises);
-    console.log('Áudios pré-carregados');
+
+    // Inicializa o ShuffledSelector com os áudios carregados
+    this.soundSelector = new ShuffledSelector(this.audioFiles); console.log('Áudios pré-carregados com ShuffledSelector');
   }
 
   /**
@@ -302,9 +361,9 @@ class BOHDialogue {
       }
     }
   }
-
   /**
    * Digita texto com efeito de máquina de escrever
+   * Mimetiza o comportamento do talk() do _Boh.py
    */
   async typeText(text, speed = 100) {
     return new Promise((resolve) => {
@@ -326,21 +385,29 @@ class BOHDialogue {
         textElement.innerHTML = '';
         let i = 0;
 
+        // Converte o texto colorizado em array de caracteres (como no Python)
+        const chars = Array.from(colorizedText);
+
         const typeNextChar = () => {
           if (this.isPaused) {
             this.currentTimeout = setTimeout(typeNextChar, 100);
             return;
           }
 
-          if (i < colorizedText.length) {
-            textElement.innerHTML += colorizedText[i];
-            i++;
+          if (i < chars.length) {
+            const currentChar = chars[i];
+            textElement.innerHTML += currentChar;
 
-            // Toca som ocasionalmente
-            if (Math.random() > 0.7) {
-              this.playTypingSound();
+            // Verifica se o caractere atual é alfanumérico para reproduzir o som
+            // Remove códigos ANSI para verificar (como no Python)
+            const cleanChar = currentChar.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
+
+            // Reproduz o som apenas se for um caractere alfanumérico (como no Python)
+            if (cleanChar && /[a-zA-Z0-9]/.test(cleanChar)) {
+              this.playTypingSound(false, cleanChar);
             }
 
+            i++;
             this.currentTimeout = setTimeout(typeNextChar, speed);
           } else {
             this.isTyping = false;
@@ -375,20 +442,66 @@ class BOHDialogue {
       console.error('Erro ao colorizar texto:', error);
       return text;
     }
+  }  /**
+   * Toca som de digitação mimetizando o comportamento do _Boh.py
+   * Implementa:
+   * - Controle de tempo entre reproduções (cooldown)
+   * - Canal único de áudio (para apenas um som por vez)
+   * - Seleção sem repetição usando ShuffledSelector
+   * - Verificação de caracteres alfanuméricos
+   */
+  playTypingSound(staticMode = true, character = " ") {
+    if (!this.soundEnabled || !this.soundSelector) return;
+
+    const currentTime = Date.now();
+    let shouldPlay = false;
+
+    // Implementa a lógica de controle de tempo do Python
+    if (this.lastSoundTime) {
+      if (staticMode && character === " ") {
+        shouldPlay = true;
+      } else {
+        shouldPlay = (currentTime - this.lastSoundTime) > this.soundCooldown;
+      }
+    } else {
+      this.lastSoundTime = currentTime;
+      shouldPlay = true;
+    }
+
+    // Verifica se é um caractere alfanumérico (como no Python)
+    const cleanChar = character.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
+    const isAlphaNumeric = /[a-zA-Z0-9]/.test(cleanChar);
+
+    // Só toca som se deve tocar e se é alfanumérico (ou modo estático)
+    if (shouldPlay && (isAlphaNumeric || (staticMode && character === " "))) {
+      this.lastSoundTime = currentTime;
+
+      // Para qualquer som em reprodução (canal único como pygame)
+      if (this.audioChannel && !this.audioChannel.paused) {
+        this.audioChannel.pause();
+        this.audioChannel.currentTime = 0;
+      }
+
+      // Seleciona som sem repetição usando ShuffledSelector
+      const selectedAudio = this.soundSelector.select();
+
+      // Cria nova instância para reprodução (como no Python)
+      this.audioChannel = new Audio(selectedAudio.src);
+      this.audioChannel.volume = this.config.audioVolume;
+      this.audioChannel.currentTime = 0;      // Reproduz o som
+      this.audioChannel.play().catch(error => {
+        console.warn('Erro ao reproduzir som:', error);
+      });
+    }
   }
 
   /**
-   * Toca som de digitação
+   * Para o canal de áudio atual (similar ao sound_channel.stop() do Python)
    */
-  playTypingSound() {
-    if (!this.soundEnabled || this.audioFiles.length === 0) return;
-
-    const randomAudio = this.audioFiles[Math.floor(Math.random() * this.audioFiles.length)];
-    if (randomAudio) {
-      randomAudio.currentTime = 0;
-      randomAudio.play().catch(() => {
-        // Ignora erros de áudio
-      });
+  stopAudioChannel() {
+    if (this.audioChannel && !this.audioChannel.paused) {
+      this.audioChannel.pause();
+      this.audioChannel.currentTime = 0;
     }
   }
 
@@ -592,9 +705,7 @@ class BOHDialogue {
 
     console.log('Input de nome cancelado');
     this.advanceStep();
-  }
-
-  /**
+  }  /**
    * Alterna som ligado/desligado
    */
   toggleSound() {
@@ -604,14 +715,13 @@ class BOHDialogue {
       this.elements.soundIndicator.textContent = this.soundEnabled ? '🔊' : '🔇';
     }
 
-    if (!this.soundEnabled && this.currentAudio) {
-      this.currentAudio.pause();
+    if (!this.soundEnabled) {
+      // Para o canal de áudio quando som é desligado
+      this.stopAudioChannel();
     }
 
     console.log('Som:', this.soundEnabled ? 'ligado' : 'desligado');
-  }
-
-  /**
+  }  /**
    * Alterna pausa
    */
   togglePause() {
@@ -621,9 +731,8 @@ class BOHDialogue {
       if (this.currentTimeout) {
         clearTimeout(this.currentTimeout);
       }
-      if (this.currentAudio) {
-        this.currentAudio.pause();
-      }
+      // Para o canal de áudio ao pausar
+      this.stopAudioChannel();
     } else {
       // Retoma a partir do estado atual
       this.processCurrentStep();
@@ -644,9 +753,7 @@ class BOHDialogue {
 
     this.keyboardEventsSetup = true;
     console.log('Controles de teclado configurados');
-  }
-
-  /**
+  }  /**
    * Reseta o diálogo
    */
   reset() {
@@ -662,9 +769,9 @@ class BOHDialogue {
       this.currentTimeout = null;
     }
 
-    if (this.currentAudio) {
-      this.currentAudio.pause();
-    }
+    // Para o canal de áudio e reseta o sistema de som
+    this.stopAudioChannel();
+    this.lastSoundTime = null;
 
     this.clearStaticDisplay();
     this.showResponseControls(false);
@@ -716,12 +823,30 @@ class BOHDialogue {
       `;
     }
   }
-
   /**
    * Utilitário para aguardar
    */
   wait(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }  /**
+   * Método de teste para verificar controle de áudio
+   */
+  testAudioControl() {
+    console.log('=== TESTE DE CONTROLE DE ÁUDIO ===');
+
+    // Simula múltiplos sons rapidamente
+    for (let i = 0; i < 5; i++) {
+      setTimeout(() => {
+        this.playTypingSound();
+      }, i * 100);
+    }
+
+    // Verifica estado após 2 segundos
+    setTimeout(() => {
+      const audioStatus = this.audioChannel && !this.audioChannel.paused ? 'reproduzindo' : 'parado';
+      console.log(`Estado do canal de áudio após teste: ${audioStatus}`);
+      console.log('=== FIM DO TESTE ===');
+    }, 2000);
   }
 }
 

@@ -3,6 +3,34 @@
  * Versão consolidada baseada no _Boh.py original
  */
 
+/**
+ * Classe para selecionar itens aleatórios sem repetição
+ * Mimetiza o comportamento do ShuffledSelector do Python
+ */
+class ShuffledSelector {
+  constructor(items) {
+    this.items = [...items]; // Cria uma cópia da lista de itens
+    this.availableIndices = [...Array(items.length).keys()]; // Índices disponíveis
+  }
+
+  select() {
+    // Se não houver índices disponíveis, recarrega todos
+    if (this.availableIndices.length === 0) {
+      this.availableIndices = [...Array(this.items.length).keys()];
+    }
+
+    // Escolhe um índice aleatório dos disponíveis
+    const randomIndex = Math.floor(Math.random() * this.availableIndices.length);
+    const selectedIndex = this.availableIndices[randomIndex];
+
+    // Remove o índice escolhido da lista de disponíveis
+    this.availableIndices.splice(randomIndex, 1);
+
+    // Retorna o item correspondente ao índice
+    return this.items[selectedIndex];
+  }
+}
+
 class BOHDialogue {
   constructor() {
     // Estado do sistema
@@ -24,11 +52,18 @@ class BOHDialogue {
 
     // Controles de animação
     this.currentTimeout = null;
-    this.currentAudio = null;
+
+    // Sistema de áudio refatorado (mimetiza pygame single channel)
+    this.audioChannel = null; // Canal único de áudio (como pygame.mixer.Channel(0))
     this.audioFiles = [];
+    this.audioSelector = null; // Será inicializado no preloadAudio
+    this.lastSoundTime = 0; // Para controle de cooldown
+    this.soundCooldown = 300; // 300ms de cooldown (como no Python)
 
     // Elementos DOM - inicializar após DOM carregar
-    this.elements = {};    // Configurações
+    this.elements = {};
+
+    // Configurações
     this.config = {
       typingSpeed: 30, // Mais rápido (era 80)
       expressionChangeSpeed: 50, // Mais rápido (era 100)
@@ -101,8 +136,7 @@ class BOHDialogue {
       console.error('Erro ao carregar dados do diálogo:', error);
       throw error;
     }
-  }
-  /**
+  }  /**
    * Pré-carrega arquivos de áudio
    */
   async preloadAudio() {
@@ -121,7 +155,11 @@ class BOHDialogue {
     }
 
     await Promise.all(audioPromises);
-    console.log('Áudios pré-carregados');
+
+    // Inicializa o seletor shuffled após carregar os áudios
+    this.audioSelector = new ShuffledSelector(this.audioFiles);
+
+    console.log('Áudios pré-carregados e seletor inicializado');
   }
 
   /**
@@ -330,17 +368,19 @@ class BOHDialogue {
           if (this.isPaused) {
             this.currentTimeout = setTimeout(typeNextChar, 100);
             return;
-          }
+          } if (i < colorizedText.length) {
+            const currentChar = colorizedText[i];
+            textElement.innerHTML += currentChar;
 
-          if (i < colorizedText.length) {
-            textElement.innerHTML += colorizedText[i];
-            i++;
+            // Remove códigos ANSI para verificar se é caractere alfanumérico
+            const cleanChar = currentChar.replace(/\x1b\[[0-9;]*m/g, '');
 
-            // Toca som ocasionalmente
-            if (Math.random() > 0.7) {
+            // Toca som apenas para caracteres alfanuméricos (como no Python)
+            if (/[a-zA-Z0-9]/.test(cleanChar)) {
               this.playTypingSound();
             }
 
+            i++;
             this.currentTimeout = setTimeout(typeNextChar, speed);
           } else {
             this.isTyping = false;
@@ -379,16 +419,41 @@ class BOHDialogue {
 
   /**
    * Toca som de digitação
-   */
+   */  /**
+  * Reproduz som de digitação usando sistema de canal único
+  * Mimetiza a lógica do _Boh.py com cooldown e seleção não-repetitiva
+  */
   playTypingSound() {
-    if (!this.soundEnabled || this.audioFiles.length === 0) return;
+    if (!this.soundEnabled || !this.audioSelector) return;
 
-    const randomAudio = this.audioFiles[Math.floor(Math.random() * this.audioFiles.length)];
-    if (randomAudio) {
-      randomAudio.currentTime = 0;
-      randomAudio.play().catch(() => {
-        // Ignora erros de áudio
-      });
+    // Aplica cooldown de 300ms (como no Python)
+    const currentTime = Date.now();
+    if (currentTime - this.lastSoundTime < this.soundCooldown) {
+      return;
+    }
+
+    // Para o som atual se estiver tocando (como pygame single channel)
+    this.stopAudioChannel();
+
+    // Seleciona próximo áudio usando ShuffledSelector
+    this.audioChannel = this.audioSelector.select();
+    this.audioChannel.currentTime = 0;
+
+    // Reproduz o áudio
+    this.audioChannel.play().catch(() => {
+      // Ignora erros de áudio
+    });
+
+    // Atualiza timestamp do último som
+    this.lastSoundTime = currentTime;
+  }
+  /**
+   * Para o canal de áudio atual (mimetiza pygame.mixer.Channel(0).stop())
+   */
+  stopAudioChannel() {
+    if (this.audioChannel && !this.audioChannel.paused) {
+      this.audioChannel.pause();
+      this.audioChannel.currentTime = 0;
     }
   }
 
@@ -593,7 +658,6 @@ class BOHDialogue {
     console.log('Input de nome cancelado');
     this.advanceStep();
   }
-
   /**
    * Alterna som ligado/desligado
    */
@@ -604,8 +668,8 @@ class BOHDialogue {
       this.elements.soundIndicator.textContent = this.soundEnabled ? '🔊' : '🔇';
     }
 
-    if (!this.soundEnabled && this.currentAudio) {
-      this.currentAudio.pause();
+    if (!this.soundEnabled) {
+      this.stopAudioChannel();
     }
 
     console.log('Som:', this.soundEnabled ? 'ligado' : 'desligado');
@@ -613,17 +677,14 @@ class BOHDialogue {
 
   /**
    * Alterna pausa
-   */
-  togglePause() {
+   */  togglePause() {
     this.isPaused = !this.isPaused;
 
     if (this.isPaused) {
       if (this.currentTimeout) {
         clearTimeout(this.currentTimeout);
       }
-      if (this.currentAudio) {
-        this.currentAudio.pause();
-      }
+      this.stopAudioChannel();
     } else {
       // Retoma a partir do estado atual
       this.processCurrentStep();
@@ -655,16 +716,12 @@ class BOHDialogue {
     this.isPaused = false;
     this.isTyping = false;
     this.isWaitingForResponse = false;
-    this.isWaitingForName = false;
-
-    if (this.currentTimeout) {
+    this.isWaitingForName = false; if (this.currentTimeout) {
       clearTimeout(this.currentTimeout);
       this.currentTimeout = null;
     }
 
-    if (this.currentAudio) {
-      this.currentAudio.pause();
-    }
+    this.stopAudioChannel();
 
     this.clearStaticDisplay();
     this.showResponseControls(false);
