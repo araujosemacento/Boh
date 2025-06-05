@@ -75,12 +75,16 @@ def create_github_pages_site():
                     <label for="name-input-field">Digite seu nome aqui:</label>
                     <input type="text" id="name-input-field" maxlength="20" placeholder="Nome" />
                     <button onclick="submitName()">Enviar</button>
-                </div>
-
-                <!-- Loading screen - usando estrutura simples sem classe específica -->
+                </div>                <!-- Loading screen - usando estrutura simples sem classe específica -->
                 <div id="loading-screen" style="display: none; text-align: center; padding: 20px;">
                     <div class="expression">[ ▀ ¸ ▀]</div>
                     <div style="color: #c9d1d9; margin-top: 10px;">Carregando diálogo do BOH...</div>
+                </div>
+
+                <!-- Status de conectividade -->
+                <div id="connection-status" style="position: fixed; top: 20px; left: 20px; padding: 10px; background: rgba(0,0,0,0.8); border-radius: 4px; font-size: 12px; color: #c9d1d9; z-index: 1000;">
+                    <div>🔗 Status: <span id="connection-indicator">Testando...</span></div>
+                    <div>📍 API: <span id="api-url-display">-</span></div>
                 </div>
             </div>
         </div>

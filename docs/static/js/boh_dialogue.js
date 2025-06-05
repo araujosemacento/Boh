@@ -68,9 +68,227 @@ class BOHDialogue {
       expressionChangeSpeed: 50, // Mais rápido (era 100)
       audioVolume: 0.7,
       sfxPath: '/static/dialogue/sfx/'
+    }; console.log('BOHDialogue inicializado');
+
+    // Executar testes de conectividade
+    this.runConnectivityTests();
+  }  /**
+   * Executa testes de conectividade com o endpoint
+   */
+  async runConnectivityTests() {
+    console.log('🔍 Iniciando testes de conectividade...');
+    console.log(`📍 API Base URL: ${this.apiBaseUrl}`);
+
+    // Atualizar indicador visual
+    this.updateConnectionStatus('testing', 'Testando conectividade...');
+
+    const results = {};
+
+    // Teste 1: Verificar se o endpoint está respondendo
+    console.log('🏥 Executando teste de saúde do endpoint...');
+    results.health = await this.testEndpointHealth();
+
+    // Teste 2: Verificar dados de diálogo
+    console.log('💬 Executando teste de dados de diálogo...');
+    results.data = await this.testDialogueData();
+
+    // Teste 3: Verificar API de colorização
+    console.log('🎨 Executando teste de colorização...');
+    results.colorize = await this.testColorizeAPI();
+
+    // Teste 4: Verificar recursos de áudio (opcional)
+    console.log('🔊 Executando teste de recursos de áudio...');
+    results.audio = await this.testAudioResources();
+
+    // Relatório final
+    console.log('📊 RELATÓRIO DE CONECTIVIDADE:');
+    console.log(`   ✓ Saúde do Endpoint: ${results.health ? '✅ OK' : '❌ FALHOU'}`);
+    console.log(`   ✓ Dados de Diálogo: ${results.data ? '✅ OK' : '❌ FALHOU'}`);
+    console.log(`   ✓ API Colorização: ${results.colorize ? '✅ OK' : '❌ FALHOU'}`);
+    console.log(`   ✓ Recursos de Áudio: ${results.audio ? '✅ OK' : '⚠️  OPCIONAL'}`);
+
+    const criticalTests = results.health && results.data && results.colorize;
+    const allTestsPassed = criticalTests && results.audio;
+
+    // Atualizar status final
+    this.updateConnectionStatus(
+      criticalTests ? (allTestsPassed ? 'connected' : 'warning') : 'error',
+      criticalTests ? (allTestsPassed ? 'Totalmente Conectado' : 'Conectado (sem áudio)') : 'Falha na Conectividade'
+    );
+
+    console.log(criticalTests ? '✅ Testes críticos aprovados - Sistema funcional' : '❌ Falha nos testes críticos - Sistema pode não funcionar');
+
+    // Armazenar resultados para consulta posterior
+    this.lastConnectivityTest = {
+      timestamp: new Date().toISOString(),
+      results: results,
+      critical_passed: criticalTests,
+      all_passed: allTestsPassed
     };
 
-    console.log('BOHDialogue inicializado');
+    // Esconder indicador após 15 segundos se tudo estiver OK
+    if (criticalTests) {
+      setTimeout(() => {
+        const statusElement = document.getElementById('connection-status');
+        if (statusElement) statusElement.style.display = 'none';
+      }, 15000);
+    }
+
+    return results;
+  }
+  /**
+   * Testa se o endpoint principal está respondendo
+   */
+  async testEndpointHealth() {
+    try {
+      console.log('🏥 Testando saúde do endpoint...');
+
+      const response = await fetch(`${this.apiBaseUrl}/api/dialogue/`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        timeout: 5000 // 5 segundos
+      });
+
+      if (response.ok) {
+        console.log('✅ Endpoint respondendo:', response.status, response.statusText);
+        const data = await response.json();
+        console.log('📊 Dados recebidos:', Object.keys(data));
+        return true;
+      } else {
+        console.warn('⚠️  Endpoint com problema:', response.status, response.statusText);
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Erro ao conectar com endpoint:', error.message);
+      console.error('📍 URL testada:', `${this.apiBaseUrl}/api/dialogue/`);
+
+      // Informações adicionais para debug
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        console.error('🌐 Possível problema de CORS ou endpoint inacessível');
+      }
+      return false;
+    }
+  }
+
+  /**
+   * Testa carregamento de dados de diálogo
+   */
+  async testDialogueData() {
+    try {
+      console.log('💬 Testando carregamento de dados de diálogo...');
+
+      const response = await fetch(`${this.apiBaseUrl}/api/dialogue/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'get_dialogue_data'
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Dados de diálogo carregados com sucesso');
+        console.log('📋 Estrutura dos dados:', {
+          dialogue_steps: data.dialogue_data ? data.dialogue_data.length : 0,
+          expressions: data.expressions ? Object.keys(data.expressions).length : 0,
+          list_models: data.list_models ? Object.keys(data.list_models).length : 0,
+          aux_art: data.aux_art ? Object.keys(data.aux_art).length : 0,
+          messages: data.messages ? Object.keys(data.messages).length : 0
+        });
+        return true;
+      } else {
+        console.warn('⚠️  Problema ao carregar dados de diálogo:', response.status);
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Erro ao testar dados de diálogo:', error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Testa API de colorização de texto
+   */
+  async testColorizeAPI() {
+    try {
+      console.log('🎨 Testando API de colorização...');
+
+      const testText = "→ Teste de colorização ←";
+      const response = await fetch(`${this.apiBaseUrl}/api/dialogue/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'colorize_arrows',
+          text: testText
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ API de colorização funcionando');
+        console.log('🎨 Texto original:', testText);
+        console.log('🎨 Texto colorizado:', data.colorized_text);
+        return true;
+      } else {
+        console.warn('⚠️  Problema na API de colorização:', response.status);
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Erro ao testar colorização:', error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Atualiza o indicador visual de status de conectividade
+   */
+  updateConnectionStatus(status, message) {
+    const indicator = document.getElementById('connection-indicator');
+    const apiUrl = document.getElementById('api-url-display');
+
+    if (indicator) {
+      indicator.textContent = message;
+      indicator.style.color = status === 'connected' ? '#7ee787' :
+        status === 'testing' ? '#f2cc60' : '#ff7b72';
+    }
+
+    if (apiUrl) {
+      apiUrl.textContent = this.apiBaseUrl.replace('https://', '').replace('http://', '');
+    }
+  }
+
+  /**
+   * Testa conectividade com informações detalhadas para debug
+   */
+  async debugConnectivity() {
+    console.log('🔧 Modo Debug - Informações detalhadas de conectividade:');
+    console.log('🌍 Ambiente detectado:', {
+      hostname: window.location.hostname,
+      protocol: window.location.protocol,
+      port: window.location.port,
+      pathname: window.location.pathname
+    });
+
+    console.log('⚙️  Configuração da API:', {
+      apiBaseUrl: this.apiBaseUrl,
+      isGitHubPages: window.location.hostname.includes('github.io'),
+      isLocalhost: ['localhost', '127.0.0.1'].includes(window.location.hostname),
+      vercelApiUrl: window.VERCEL_API_URL
+    });
+
+    // Teste de conectividade básica
+    try {
+      const response = await fetch(this.apiBaseUrl, { method: 'HEAD' });
+      console.log('🔗 Conectividade básica:', response.status === 200 ? 'OK' : 'PROBLEMA');
+    } catch (error) {
+      console.error('🔗 Conectividade básica: FALHOU -', error.message);
+    }
   }
   /**
    * Determina a URL da API baseada no ambiente
@@ -933,13 +1151,64 @@ window.submitName = function () {
   }
 };
 
+// Funções globais para testes de conectividade (uso no console)
+window.testConnection = function () {
+  if (window.bohDialogue) {
+    console.log('🔄 Executando teste de conectividade manual...');
+    window.bohDialogue.runConnectivityTests();
+  } else {
+    console.error('❌ BOHDialogue não está inicializado');
+  }
+};
+
+window.debugAPI = function () {
+  if (window.bohDialogue) {
+    console.log('🔧 Executando debug detalhado da API...');
+    window.bohDialogue.debugConnectivity();
+  } else {
+    console.error('❌ BOHDialogue não está inicializado');
+  }
+};
+
+window.testEndpoint = function (customUrl = null) {
+  if (!window.bohDialogue) {
+    console.error('❌ BOHDialogue não está inicializado');
+    return;
+  }
+
+  const testUrl = customUrl || window.bohDialogue.apiBaseUrl;
+  console.log(`🎯 Testando endpoint customizado: ${testUrl}`);
+
+  fetch(`${testUrl}/api/dialogue/`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  })
+    .then(response => {
+      console.log(`✅ Resposta recebida: ${response.status} ${response.statusText}`);
+      return response.json();
+    })
+    .then(data => {
+      console.log('📊 Dados:', data);
+    })
+    .catch(error => {
+      console.error('❌ Erro:', error.message);
+    });
+};
+
 // Instância global
 window.bohDialogue = null;
 
-// Inicialização automática
+// Inicialização automática com tratamento de erros
 document.addEventListener('DOMContentLoaded', function () {
-  window.bohDialogue = new BOHDialogue();
-  console.log('BOHDialogue instanciado globalmente');
+  try {
+    console.log('🚀 Inicializando BOH! Dialogue System...');
+    window.bohDialogue = new BOHDialogue();
+    console.log('✅ BOHDialogue instanciado com sucesso');
+    console.log('💡 Use no console: testConnection(), debugAPI(), testEndpoint()');
+  } catch (error) {
+    console.error('❌ Erro na inicialização do BOHDialogue:', error);
+    console.error('🔧 Stack trace:', error.stack);
+  }
 });
 
 // Exporta para uso global
