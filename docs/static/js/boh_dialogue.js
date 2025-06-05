@@ -43,27 +43,26 @@ class BOHDialogue {
     this.userName = '';
     this.keyboardEventsSetup = false;
 
+    // Configuração da API baseada no ambiente
+    this.apiBaseUrl = this.getApiUrl();
+
     // Dados carregados do backend
     this.dialogueData = null;
     this.expressions = {};
     this.listModels = {};
     this.auxArt = {};
-    this.messages = {};
-
-    // Controles de animação
+    this.messages = {};    // Controles de animação
     this.currentTimeout = null;
 
-    // Sistema de áudio refatorado (mimetiza pygame single channel)
-    this.audioChannel = null; // Canal único de áudio (como pygame.mixer.Channel(0))
+    // Sistema de áudio melhorado - mimetizando o comportamento do Python
     this.audioFiles = [];
-    this.audioSelector = null; // Será inicializado no preloadAudio
-    this.lastSoundTime = 0; // Para controle de cooldown
-    this.soundCooldown = 300; // 300ms de cooldown (como no Python)
+    this.audioChannel = null; // Canal único de áudio (similar ao pygame)
+    this.lastSoundTime = null; // Controle de tempo entre sons
+    this.soundCooldown = 300; // 0.3 segundos como no Python
+    this.availableAudioIndices = []; // Para seleção sem repetição (ShuffledSelector)
 
     // Elementos DOM - inicializar após DOM carregar
-    this.elements = {};
-
-    // Configurações
+    this.elements = {};// Configurações
     this.config = {
       typingSpeed: 30, // Mais rápido (era 80)
       expressionChangeSpeed: 50, // Mais rápido (era 100)
@@ -72,6 +71,25 @@ class BOHDialogue {
     };
 
     console.log('BOHDialogue inicializado');
+  }
+  /**
+   * Determina a URL da API baseada no ambiente
+   */
+  getApiUrl() {
+    const hostname = window.location.hostname;
+    
+    // Se estiver no GitHub Pages, usar API do Vercel
+    if (hostname.includes('github.io')) {
+      return window.VERCEL_API_URL || 'https://boh-dialogue-api.vercel.app';
+    }
+    
+    // Se estiver em desenvolvimento local
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'http://localhost:8000';
+    }
+    
+    // Se estiver no Vercel (fallback)
+    return window.location.origin;
   }
 
   /**
@@ -112,7 +130,7 @@ class BOHDialogue {
    */
   async loadDialogueData() {
     try {
-      const response = await fetch('/api/dialogue/', {
+      const response = await fetch(`${this.apiBaseUrl}/api/dialogue/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -137,29 +155,54 @@ class BOHDialogue {
       throw error;
     }
   }  /**
-   * Pré-carrega arquivos de áudio
+   * Pré-carrega arquivos de áudio com sistema melhorado
+   * Mimetiza o comportamento do _Boh.py
    */
   async preloadAudio() {
+    // Limpa áudios anteriores se existirem
+    if (this.audioFiles.length > 0) {
+      this.audioFiles.forEach(audio => {
+        try {
+          audio.src = '';
+          audio.load();
+        } catch (error) {
+          // Silencioso - erro esperado em alguns casos
+        }
+      });
+      this.audioFiles.length = 0;
+    }
+
     const audioPromises = [];
 
     for (let i = 1; i <= 8; i++) {
       const audio = new Audio(`${this.config.sfxPath}p03voice_calm%23${i}.wav`);
       audio.preload = 'auto';
       audio.volume = this.config.audioVolume;
+
       this.audioFiles.push(audio);
 
       audioPromises.push(new Promise((resolve) => {
-        audio.addEventListener('canplaythrough', resolve);
-        audio.addEventListener('error', resolve);
+        const handleReady = () => {
+          audio.removeEventListener('canplaythrough', handleReady);
+          audio.removeEventListener('error', handleError);
+          resolve();
+        };
+
+        const handleError = () => {
+          audio.removeEventListener('canplaythrough', handleReady);
+          audio.removeEventListener('error', handleError);
+          resolve(); // Resolve mesmo com erro para não travar
+        };
+
+        audio.addEventListener('canplaythrough', handleReady);
+        audio.addEventListener('error', handleError);
       }));
     }
 
     await Promise.all(audioPromises);
 
-    // Inicializa o seletor shuffled após carregar os áudios
-    this.audioSelector = new ShuffledSelector(this.audioFiles);
-
-    console.log('Áudios pré-carregados e seletor inicializado');
+    // Inicializa o ShuffledSelector com os áudios carregados
+    this.soundSelector = new ShuffledSelector(this.audioFiles); console.log('Áudios pré-carregados com ShuffledSelector');
   }
 
   /**
@@ -175,7 +218,7 @@ class BOHDialogue {
    */
   async processCurrentStep() {
     try {
-      const response = await fetch('/api/dialogue/', {
+      const response = await fetch(`${this.apiBaseUrl}/api/dialogue/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -198,11 +241,16 @@ class BOHDialogue {
       console.error('Erro ao processar step:', error);
     }
   }
-
   /**
    * Executa um item específico do diálogo
    */
   async executeDialogueItem(item) {
+    // CORREÇÃO: Evita execução sobrepostas se já estiver processando
+    if (this.isTyping) {
+      console.log('Ignorando execução sobrepostas - já está digitando');
+      return;
+    }
+
     console.log('Executando item:', item);
 
     // Atualiza expressão se especificada
@@ -320,7 +368,6 @@ class BOHDialogue {
       }
     }
   }
-
   /**
    * Processa item de laughter (risada)
    */
@@ -329,66 +376,105 @@ class BOHDialogue {
     const count = item.count || 5;
     const delay = item.delay || 100;
 
+    // CORREÇÃO: Acumula o texto da risada em uma string para evitar múltiplas animações
+    let fullLaughText = '';
     for (let i = 0; i < count; i++) {
-      await this.typeText(laughText, 50);
-      await this.wait(delay);
+      fullLaughText += laughText;
       if (i < count - 1) {
-        // Adiciona espaço entre risadas
-        if (this.elements.dialogueText) {
-          this.elements.dialogueText.innerHTML += " ";
-        }
+        fullLaughText += " ";
       }
     }
-  }
 
-  /**
+    // Digita tudo de uma vez
+    await this.typeText(fullLaughText, 50);
+  }/**
    * Digita texto com efeito de máquina de escrever
+   * Mimetiza o comportamento do talk() do _Boh.py
    */
   async typeText(text, speed = 100) {
     return new Promise((resolve) => {
+      // CORREÇÃO 1: Cancela qualquer animação em andamento
+      if (this.isTyping) {
+        if (this.currentTimeout) {
+          clearTimeout(this.currentTimeout);
+          this.currentTimeout = null;
+        }
+      }
+
       if (this.isPaused) {
         this.currentTimeout = setTimeout(() => this.typeText(text, speed).then(resolve), 100);
         return;
       }
 
+      // CORREÇÃO 2: Define estado de digitação ANTES de qualquer operação assíncrona
       this.isTyping = true;
+
       const textElement = this.elements.dialogueText;
       if (!textElement) {
         console.error('Elemento dialogue-text não encontrado!');
+        this.isTyping = false; // Reset estado em caso de erro
         resolve();
         return;
       }
 
+      // CORREÇÃO 3: Limpa o conteúdo anterior imediatamente
+      textElement.innerHTML = '';
+
       // Coloriza setas se necessário
       this.colorizeText(text).then((colorizedText) => {
-        textElement.innerHTML = '';
+        // CORREÇÃO 4: Verifica se ainda deve continuar (pode ter sido cancelado)
+        if (!this.isTyping) {
+          resolve();
+          return;
+        }
+
         let i = 0;
+        // Converte o texto colorizado em array de caracteres (como no Python)
+        const chars = Array.from(colorizedText);
 
         const typeNextChar = () => {
+          // CORREÇÃO 5: Sempre verifica se foi pausado ou cancelado
           if (this.isPaused) {
             this.currentTimeout = setTimeout(typeNextChar, 100);
             return;
-          } if (i < colorizedText.length) {
-            const currentChar = colorizedText[i];
+          }
+
+          // CORREÇÃO 6: Verifica se ainda está no estado de digitação
+          if (!this.isTyping) {
+            resolve();
+            return;
+          }
+
+          if (i < chars.length) {
+            const currentChar = chars[i];
             textElement.innerHTML += currentChar;
 
-            // Remove códigos ANSI para verificar se é caractere alfanumérico
-            const cleanChar = currentChar.replace(/\x1b\[[0-9;]*m/g, '');
+            // Verifica se o caractere atual é alfanumérico para reproduzir o som
+            // Remove códigos ANSI para verificar (como no Python)
+            const cleanChar = currentChar.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
 
-            // Toca som apenas para caracteres alfanuméricos (como no Python)
-            if (/[a-zA-Z0-9]/.test(cleanChar)) {
-              this.playTypingSound();
+            // Reproduz o som apenas se for um caractere alfanumérico (como no Python)
+            if (cleanChar && /[a-zA-Z0-9]/.test(cleanChar)) {
+              this.playTypingSound(false, cleanChar);
             }
 
             i++;
             this.currentTimeout = setTimeout(typeNextChar, speed);
           } else {
+            // CORREÇÃO 7: Reset estado ao finalizar
             this.isTyping = false;
+            this.currentTimeout = null;
             resolve();
           }
         };
 
         typeNextChar();
+      }).catch((error) => {
+        // CORREÇÃO 8: Reset estado em caso de erro
+        console.error('Erro ao colorizar texto:', error);
+        this.isTyping = false;
+        this.currentTimeout = null;
+        resolve();
       });
     });
   }
@@ -398,7 +484,7 @@ class BOHDialogue {
    */
   async colorizeText(text) {
     try {
-      const response = await fetch('/api/dialogue/', {
+      const response = await fetch(`${this.apiBaseUrl}/api/dialogue/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -415,40 +501,61 @@ class BOHDialogue {
       console.error('Erro ao colorizar texto:', error);
       return text;
     }
-  }
+  }  /**
+   * Toca som de digitação mimetizando o comportamento do _Boh.py
+   * Implementa:
+   * - Controle de tempo entre reproduções (cooldown)
+   * - Canal único de áudio (para apenas um som por vez)
+   * - Seleção sem repetição usando ShuffledSelector
+   * - Verificação de caracteres alfanuméricos
+   */
+  playTypingSound(staticMode = true, character = " ") {
+    if (!this.soundEnabled || !this.soundSelector) return;
 
-  /**
-   * Toca som de digitação
-   */  /**
-  * Reproduz som de digitação usando sistema de canal único
-  * Mimetiza a lógica do _Boh.py com cooldown e seleção não-repetitiva
-  */
-  playTypingSound() {
-    if (!this.soundEnabled || !this.audioSelector) return;
-
-    // Aplica cooldown de 300ms (como no Python)
     const currentTime = Date.now();
-    if (currentTime - this.lastSoundTime < this.soundCooldown) {
-      return;
+    let shouldPlay = false;
+
+    // Implementa a lógica de controle de tempo do Python
+    if (this.lastSoundTime) {
+      if (staticMode && character === " ") {
+        shouldPlay = true;
+      } else {
+        shouldPlay = (currentTime - this.lastSoundTime) > this.soundCooldown;
+      }
+    } else {
+      this.lastSoundTime = currentTime;
+      shouldPlay = true;
     }
 
-    // Para o som atual se estiver tocando (como pygame single channel)
-    this.stopAudioChannel();
+    // Verifica se é um caractere alfanumérico (como no Python)
+    const cleanChar = character.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
+    const isAlphaNumeric = /[a-zA-Z0-9]/.test(cleanChar);
 
-    // Seleciona próximo áudio usando ShuffledSelector
-    this.audioChannel = this.audioSelector.select();
-    this.audioChannel.currentTime = 0;
+    // Só toca som se deve tocar e se é alfanumérico (ou modo estático)
+    if (shouldPlay && (isAlphaNumeric || (staticMode && character === " "))) {
+      this.lastSoundTime = currentTime;
 
-    // Reproduz o áudio
-    this.audioChannel.play().catch(() => {
-      // Ignora erros de áudio
-    });
+      // Para qualquer som em reprodução (canal único como pygame)
+      if (this.audioChannel && !this.audioChannel.paused) {
+        this.audioChannel.pause();
+        this.audioChannel.currentTime = 0;
+      }
 
-    // Atualiza timestamp do último som
-    this.lastSoundTime = currentTime;
+      // Seleciona som sem repetição usando ShuffledSelector
+      const selectedAudio = this.soundSelector.select();
+
+      // Cria nova instância para reprodução (como no Python)
+      this.audioChannel = new Audio(selectedAudio.src);
+      this.audioChannel.volume = this.config.audioVolume;
+      this.audioChannel.currentTime = 0;      // Reproduz o som
+      this.audioChannel.play().catch(error => {
+        console.warn('Erro ao reproduzir som:', error);
+      });
+    }
   }
+
   /**
-   * Para o canal de áudio atual (mimetiza pygame.mixer.Channel(0).stop())
+   * Para o canal de áudio atual (similar ao sound_channel.stop() do Python)
    */
   stopAudioChannel() {
     if (this.audioChannel && !this.audioChannel.paused) {
@@ -552,11 +659,15 @@ class BOHDialogue {
       this.elements.dialogueText.innerHTML = `<span class="error">${message}</span>`;
     }
   }
-
   /**
    * Avança para o próximo passo
    */
   advanceStep() {
+    // CORREÇÃO: Evita avanços múltiplos se já estiver digitando
+    if (this.isTyping) {
+      return;
+    }
+
     this.currentStep++;
     setTimeout(() => this.processCurrentStep(), 100);
   }
@@ -628,7 +739,7 @@ class BOHDialogue {
 
     // Salva nome no backend
     try {
-      await fetch('/api/dialogue/', {
+      await fetch(`${this.apiBaseUrl}/api/dialogue/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -657,8 +768,7 @@ class BOHDialogue {
 
     console.log('Input de nome cancelado');
     this.advanceStep();
-  }
-  /**
+  }  /**
    * Alterna som ligado/desligado
    */
   toggleSound() {
@@ -669,24 +779,29 @@ class BOHDialogue {
     }
 
     if (!this.soundEnabled) {
+      // Para o canal de áudio quando som é desligado
       this.stopAudioChannel();
     }
 
     console.log('Som:', this.soundEnabled ? 'ligado' : 'desligado');
-  }
-
-  /**
+  }  /**
    * Alterna pausa
-   */  togglePause() {
+   */
+  togglePause() {
     this.isPaused = !this.isPaused;
 
     if (this.isPaused) {
+      // Ao pausar: para qualquer digitação e áudio em andamento
+      this.isTyping = false;
       if (this.currentTimeout) {
         clearTimeout(this.currentTimeout);
+        this.currentTimeout = null;
       }
       this.stopAudioChannel();
+      console.log('⏸️ Pausado - pressione espaço para continuar do início');
     } else {
-      // Retoma a partir do estado atual
+      // Ao despausar: SEMPRE reinicia a fala atual do início para reavaliação
+      console.log('▶️ Retomando do início para reavaliação...');
       this.processCurrentStep();
     }
 
@@ -705,23 +820,28 @@ class BOHDialogue {
 
     this.keyboardEventsSetup = true;
     console.log('Controles de teclado configurados');
-  }
-
-  /**
+  }  /**
    * Reseta o diálogo
    */
   reset() {
+    // CORREÇÃO: Para qualquer digitação em andamento
+    this.isTyping = false;
+
     this.currentStep = 0;
     this.userName = '';
     this.isPaused = false;
-    this.isTyping = false;
     this.isWaitingForResponse = false;
-    this.isWaitingForName = false; if (this.currentTimeout) {
+    this.isWaitingForName = false;
+
+    // CORREÇÃO: Limpa todos os timeouts
+    if (this.currentTimeout) {
       clearTimeout(this.currentTimeout);
       this.currentTimeout = null;
     }
 
+    // Para o canal de áudio e reseta o sistema de som
     this.stopAudioChannel();
+    this.lastSoundTime = null;
 
     this.clearStaticDisplay();
     this.showResponseControls(false);
@@ -773,12 +893,30 @@ class BOHDialogue {
       `;
     }
   }
-
   /**
    * Utilitário para aguardar
    */
   wait(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }  /**
+   * Método de teste para verificar controle de áudio
+   */
+  testAudioControl() {
+    console.log('=== TESTE DE CONTROLE DE ÁUDIO ===');
+
+    // Simula múltiplos sons rapidamente
+    for (let i = 0; i < 5; i++) {
+      setTimeout(() => {
+        this.playTypingSound();
+      }, i * 100);
+    }
+
+    // Verifica estado após 2 segundos
+    setTimeout(() => {
+      const audioStatus = this.audioChannel && !this.audioChannel.paused ? 'reproduzindo' : 'parado';
+      console.log(`Estado do canal de áudio após teste: ${audioStatus}`);
+      console.log('=== FIM DO TESTE ===');
+    }, 2000);
   }
 }
 

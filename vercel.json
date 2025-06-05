@@ -1,30 +1,27 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "static_site/**",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "api/wsgi.py",
-      "use": "@vercel/python"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/wsgi.py"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/static_site/$1"
-    }
-  ],
   "functions": {
     "api/wsgi.py": {
       "runtime": "python3.11"
     }
   },
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/wsgi.py"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Credentials", "value": "true" },
+        { "key": "Access-Control-Allow-Origin", "value": "https://suzuma.github.io" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET,OPTIONS,PATCH,DELETE,POST,PUT" },
+        { "key": "Access-Control-Allow-Headers", "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version" }
+      ]
+    }
+  ],
   "env": {
     "DJANGO_SETTINGS_MODULE": "boh.settings"
   }

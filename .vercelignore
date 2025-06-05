@@ -1,0 +1,16 @@
+# Ignorar arquivos desnecessários no Vercel (apenas API)
+docs/
+static_site/
+dialogue/templates/
+dialogue/static/
+.github/
+__pycache__/
+*.pyc
+.git/
+.vscode/
+README*.md
+test_*.py
+build_github_pages.py
+_Boh.py
+_config.yml
+db.sqlite3

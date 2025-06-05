@@ -43,6 +43,9 @@ class BOHDialogue {
     this.userName = '';
     this.keyboardEventsSetup = false;
 
+    // Configuração da API baseada no ambiente
+    this.apiBaseUrl = this.getApiUrl();
+
     // Dados carregados do backend
     this.dialogueData = null;
     this.expressions = {};
@@ -68,6 +71,25 @@ class BOHDialogue {
     };
 
     console.log('BOHDialogue inicializado');
+  }
+  /**
+   * Determina a URL da API baseada no ambiente
+   */
+  getApiUrl() {
+    const hostname = window.location.hostname;
+
+    // Se estiver no GitHub Pages, usar API do Vercel
+    if (hostname.includes('github.io')) {
+      return window.VERCEL_API_URL || 'https://boh-dialogue-api.vercel.app';
+    }
+
+    // Se estiver em desenvolvimento local
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'http://localhost:8000';
+    }
+
+    // Se estiver no Vercel (fallback)
+    return window.location.origin;
   }
 
   /**
@@ -108,7 +130,7 @@ class BOHDialogue {
    */
   async loadDialogueData() {
     try {
-      const response = await fetch('/api/dialogue/', {
+      const response = await fetch(`${this.apiBaseUrl}/api/dialogue/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -196,7 +218,7 @@ class BOHDialogue {
    */
   async processCurrentStep() {
     try {
-      const response = await fetch('/api/dialogue/', {
+      const response = await fetch(`${this.apiBaseUrl}/api/dialogue/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -462,7 +484,7 @@ class BOHDialogue {
    */
   async colorizeText(text) {
     try {
-      const response = await fetch('/api/dialogue/', {
+      const response = await fetch(`${this.apiBaseUrl}/api/dialogue/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -717,7 +739,7 @@ class BOHDialogue {
 
     // Salva nome no backend
     try {
-      await fetch('/api/dialogue/', {
+      await fetch(`${this.apiBaseUrl}/api/dialogue/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
