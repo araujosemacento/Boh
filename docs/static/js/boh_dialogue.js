@@ -77,17 +77,17 @@ class BOHDialogue {
    */
   getApiUrl() {
     const hostname = window.location.hostname;
-    
+
     // Se estiver no GitHub Pages, usar API do Vercel
     if (hostname.includes('github.io')) {
       return window.VERCEL_API_URL || 'https://boh-dialogue-api.vercel.app';
     }
-    
+
     // Se estiver em desenvolvimento local
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return 'http://localhost:8000';
     }
-    
+
     // Se estiver no Vercel (fallback)
     return window.location.origin;
   }
