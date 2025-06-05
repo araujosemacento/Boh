@@ -65,11 +65,11 @@
 
 ## 📊 **STATUS ESPERADO**
 
-| Componente | Status Atual | Status Esperado |
-|------------|--------------|-----------------|
-| Local Dev | ✅ Funcionando | ✅ Funcionando |
-| GitHub Pages | ✅ Funcionando | ✅ Funcionando |
-| Vercel API | ❌ Erro 500 | ✅ Funcionando |
+| Componente   | Status Atual  | Status Esperado |
+| ------------ | ------------- | --------------- |
+| Local Dev    | ✅ Funcionando | ✅ Funcionando   |
+| GitHub Pages | ✅ Funcionando | ✅ Funcionando   |
+| Vercel API   | ❌ Erro 500    | ✅ Funcionando   |
 
 ---
 

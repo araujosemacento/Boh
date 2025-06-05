@@ -94,11 +94,11 @@ python test_vercel_deployment.py
 
 ## 📊 STATUS ATUAL
 
-| Componente | Status | URL |
-|------------|--------|-----|
-| Desenvolvimento Local | ✅ Funcionando | http://localhost:8000 |
-| GitHub Pages | ✅ Funcionando | https://suzuma.github.io/Boh/ |
-| Vercel API | 🔄 Em correção | https://boh-dialogue-api.vercel.app |
+| Componente            | Status        | URL                                 |
+| --------------------- | ------------- | ----------------------------------- |
+| Desenvolvimento Local | ✅ Funcionando | http://localhost:8000               |
+| GitHub Pages          | ✅ Funcionando | https://suzuma.github.io/Boh/       |
+| Vercel API            | 🔄 Em correção | https://boh-dialogue-api.vercel.app |
 
 ---
 
