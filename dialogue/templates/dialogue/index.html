@@ -2,6 +2,7 @@
 {% load static %}
 
 {% block content %}
+  <!-- Área principal do BOH -->
   <div class="boh-display">
     <div class="expression" id="boh-expression">[ ▀ ¸ ▀]</div>
     <div class="dialogue-container">
@@ -11,23 +12,54 @@
     </div>
   </div>
 
+  <!-- Área para texto estático -->
   <div class="static-text" id="static-display"></div>
 
-  <!-- Área para exibir diagramas ASCII -->
-  <div class="list-model" id="ascii-display" style="display: none;"></div>
+  <!-- Área para diagramas ASCII das listas -->
+  <div class="list-model" id="ascii-display"></div>
 
-  <!-- Área de input para respostas -->
-  <div class="input-area" id="response-area" style="display: none;">
-    <div class="input-options">
-      <button class="control-btn" id="yes-btn" onclick="sendResponse('s')"><span class="text-green">S</span>im</button>
-      <button class="control-btn" id="no-btn" onclick="sendResponse('n')"><span class="text-red">N</span>ão</button>
-    </div>
+  <!-- Área para arte ASCII do AUX -->
+  <div class="aux-display" id="aux-display"></div>
+
+  <!-- Controles de resposta -->
+  <div class="response-controls" id="response-controls" style="display: none;">
+    <button class="control-btn yes-btn" onclick="sendResponse('s')">
+      <span class="text-green">S</span>im
+    </button>
+    <button class="control-btn no-btn" onclick="sendResponse('n')">
+      <span class="text-red">N</span>ão
+    </button>
   </div>
 
-  <!-- Área para input de nome -->
-  <div class="name-input" id="name-area" style="display: none;">
+  <!-- Input para nome -->
+  <div class="name-input-area" id="name-input-area" style="display: none;">
     <label for="name-input">Digite seu nome aqui:</label>
-    <input type="text" id="name-input" maxlength="4" placeholder="Nome" />
+    <input type="text" id="name-input" maxlength="20" placeholder="Nome" />
+    <button onclick="submitName()">Enviar</button>
+  </div>
+
+  <!-- Indicador de som -->
+  <div class="sound-indicator" id="sound-indicator">🔊</div>
+
+  <!-- Loading screen -->
+  <div class="loading-screen" id="loading-screen">
+    <div class="loading-content">
+      <div class="loading-expression">[ ▀ ¸ ▀]</div>
+      <div class="loading-text">Carregando diálogo do BOH...</div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'dialogue/js/boh_dialogue.js' %}"></script>
+<script>
+  // Inicializar o diálogo quando a página carregar
+  document.addEventListener('DOMContentLoaded', function() {
+    const dialogue = new BOHDialogue();
+    dialogue.start();
+  });
+</script>
+{% endblock %}
     <button onclick="submitName()">Enviar</button>
   </div>
 {% endblock %}

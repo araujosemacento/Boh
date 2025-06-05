@@ -116,6 +116,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 # STATICFILES_DIRS não é necessário pois estamos usando apenas arquivos estáticos de apps
 
 # Default primary key field type
