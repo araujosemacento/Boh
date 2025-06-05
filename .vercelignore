@@ -1,16 +1,39 @@
-# Ignorar arquivos desnecessários no Vercel (apenas API)
-docs/
-static_site/
-dialogue/templates/
-dialogue/static/
-.github/
+# Database
+*.sqlite3
+db.sqlite3
+
+# Python cache
 __pycache__/
 *.pyc
-.git/
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
 .vscode/
-README*.md
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Development
+.env
+.env.local
 test_*.py
-build_github_pages.py
-_Boh.py
-_config.yml
-db.sqlite3
+run_local.py
+
+# GitHub Pages
+docs/
+.nojekyll
+
+# Git
+.git/
+.gitignore

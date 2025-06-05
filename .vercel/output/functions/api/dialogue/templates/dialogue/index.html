@@ -1,0 +1,692 @@
+{% extends 'dialogue/base.html' %}
+{% load static %}
+
+{% block content %}
+  <!-- Área principal do BOH -->
+  <div class="boh-display">
+    <div class="expression" id="boh-expression">[ ▀ ¸ ▀]</div>
+    <div class="dialogue-container">
+      <span class="dialogue-prefix">──┤</span>
+      <span class="dialogue-text" id="dialogue-text"></span>
+      <span class="dialogue-suffix">│</span>
+    </div>
+  </div>
+
+  <!-- Área para texto estático -->
+  <div class="static-text" id="static-display"></div>
+
+  <!-- Área para diagramas ASCII das listas -->
+  <div class="list-model" id="ascii-display"></div>
+
+  <!-- Área para arte ASCII do AUX -->
+  <div class="aux-display" id="aux-display"></div>
+
+  <!-- Controles de resposta -->
+  <div class="response-controls" id="response-controls" style="display: none;">
+    <button class="control-btn yes-btn" onclick="sendResponse('s')">
+      <span class="text-green">S</span>im
+    </button>
+    <button class="control-btn no-btn" onclick="sendResponse('n')">
+      <span class="text-red">N</span>ão
+    </button>
+  </div>
+
+  <!-- Input para nome -->
+  <div class="name-input-area" id="name-input-area" style="display: none;">
+    <label for="name-input">Digite seu nome aqui:</label>
+    <input type="text" id="name-input" maxlength="20" placeholder="Nome" />
+    <button onclick="submitName()">Enviar</button>
+  </div>
+
+  <!-- Indicador de som -->
+  <div class="sound-indicator" id="sound-indicator">🔊</div>
+
+  <!-- Loading screen -->
+  <div class="loading-screen" id="loading-screen">
+    <div class="loading-content">
+      <div class="loading-expression">[ ▀ ¸ ▀]</div>
+      <div class="loading-text">Carregando diálogo do BOH...</div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'dialogue/js/boh_dialogue.js' %}"></script>
+<script>
+  // Inicializar o diálogo quando a página carregar
+  document.addEventListener('DOMContentLoaded', function() {
+    const dialogue = new BOHDialogue();
+    dialogue.start();
+  });
+</script>
+{% endblock %}
+    <button onclick="submitName()">Enviar</button>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    class BOHDialogue {
+      constructor() {
+        this.expressions = {
+          idle: ['[ ▀ ¸ ▀]', '[ ▀ ° ▀]', '[ ▀ ■ ▀]', '[ ▀ ─ ▀]', '[ ▀ ~ ▀]', '[ ▀ ▄ ▀]', '[ ▀ ¬ ▀]', '[ ▀ · ▀]', '[ ▀ _ ▀]'],
+          pokerface: ['[ ▀ ‗ ▀]', '[ ▀ ¯ ▀]', '[ ▀ ¡ ▀]'],
+          thinking: ['[ ─ ´ ─]', '[ ─ » ─]'],
+          'open mouth': ['[ ▀ ß ▀]', '[ ▀ █ ▀]'],
+          annoyed: ['[ ▀ ı ▀]', '[ ▀ ^ ▀]'],
+          'looking down': ['[ ▄ . ▄]', '[ ▄ _ ▄]', '[ ▄ ₒ ▄]', '[ ▄ ‗ ▄]']
+        }
+    
+        this.currentDialogue = []
+        this.currentIndex = 0
+        this.soundEnabled = true
+        this.audioContext = null
+        this.setupAudio()
+        this.initDialogue()
+      }
+    
+      setupAudio() {
+        try {
+          this.audioContext = new (window.AudioContext || window.webkitAudioContext)()
+          document.getElementById('toggle-sound').onclick = () => this.toggleSound()
+        } catch (e) {
+          console.log('Áudio não disponível')
+          document.getElementById('audio-controls').classList.add('audio-disabled')
+        }
+      }
+    
+      toggleSound() {
+        this.soundEnabled = !this.soundEnabled
+        const btn = document.getElementById('toggle-sound')
+        btn.textContent = this.soundEnabled ? '🔊' : '🔇'
+      }
+    
+      playTypingSound() {
+        if (!this.soundEnabled || !this.audioContext) return
+    
+        const oscillator = this.audioContext.createOscillator()
+        const gainNode = this.audioContext.createGain()
+    
+        oscillator.connect(gainNode)
+        gainNode.connect(this.audioContext.destination)
+    
+        oscillator.frequency.setValueAtTime(800 + Math.random() * 400, this.audioContext.currentTime)
+        oscillator.type = 'sine'
+    
+        gainNode.gain.setValueAtTime(0.1, this.audioContext.currentTime)
+        gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.1)
+    
+        oscillator.start(this.audioContext.currentTime)
+        oscillator.stop(this.audioContext.currentTime + 0.1)
+    
+        // Indicador visual
+        const indicator = document.getElementById('sound-indicator')
+        indicator.classList.add('active')
+        setTimeout(() => indicator.classList.remove('active'), 100)
+      }
+    
+      async typeText(text, expression = 'idle', staticText = '', colorizeArrows = false) {
+        const dialogueElement = document.getElementById('dialogue-text')
+        const expressionElement = document.getElementById('boh-expression')
+        const staticElement = document.getElementById('static-display')
+    
+        // Processar texto para cores e formatação
+        text = this.processFormattedText(text)
+    
+        if (staticText) {
+          staticElement.innerHTML = this.processFormattedText(staticText, colorizeArrows)
+          staticElement.style.display = 'block'
+        } else {
+          staticElement.style.display = 'none'
+        }
+    
+        dialogueElement.innerHTML = ''
+    
+        const expressionList = this.expressions[expression] || this.expressions['idle']
+    
+        for (let i = 0; i < text.length; i++) {
+          const char = text[i]
+          dialogueElement.innerHTML += char
+    
+          // Trocar expressão
+          const exprIndex = Math.floor(i / (expressionList.length / 2)) % expressionList.length
+          expressionElement.textContent = expressionList[exprIndex]
+    
+          // Reproduzir som para caracteres alfanuméricos
+          if (/[a-zA-Z0-9]/.test(char)) {
+            this.playTypingSound()
+          }
+    
+          await this.sleep(30)
+        }
+      }
+    
+      processFormattedText(text, colorizeArrows = false) {
+        // Substituir cores ANSI por classes CSS
+        text = text.replace(/\033\[31m/g, '<span class="text-red">')
+        text = text.replace(/\033\[32m/g, '<span class="text-green">')
+        text = text.replace(/\033\[34m/g, '<span class="text-blue">')
+        text = text.replace(/\033\[33m/g, '<span class="text-yellow">')
+        text = text.replace(/\033\[35m/g, '<span class="text-purple">')
+        text = text.replace(/\033\[36m/g, '<span class="text-cyan">')
+        text = text.replace(/\033\[1m/g, '<span class="text-bold">')
+        text = text.replace(/\033\[0m/g, '</span>')
+    
+        // Colorizar setas se necessário
+        if (colorizeArrows) {
+          text = text.replace(/[‹›]/g, '<span class="arrow-orange">$&</span>')
+          text = text.replace(/[»«]/g, '<span class="arrow-blue">$&</span>')
+        }
+    
+        return text
+      }
+    
+      showASCII(content) {
+        const asciiDisplay = document.getElementById('ascii-display')
+        asciiDisplay.innerHTML = this.processFormattedText(content)
+        asciiDisplay.style.display = 'block'
+      }
+    
+      hideASCII() {
+        document.getElementById('ascii-display').style.display = 'none'
+      }
+    
+      showResponseArea() {
+        document.getElementById('response-area').style.display = 'block'
+      }
+    
+      hideResponseArea() {
+        document.getElementById('response-area').style.display = 'none'
+      }
+    
+      showNameInput() {
+        document.getElementById('name-area').style.display = 'block'
+      }
+    
+      hideNameInput() {
+        document.getElementById('name-area').style.display = 'none'
+      }
+    
+      sleep(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms))
+      }
+    
+      async initDialogue() {
+        await this.typeText('Oi, tudo bem?')
+        await this.sleep(1000)
+    
+        await this.typeText('Muito obrigado por executar o meu script')
+        await this.sleep(1000)
+    
+        await this.typeText('Eu me chamo BOH!', 'idle', '', false)
+        await this.sleep(750)
+    
+        await this.typeText('He He', 'open mouth')
+        await this.sleep(750)
+    
+        await this.typeText('Sabe...')
+        await this.sleep(750)
+    
+        await this.typeText('Tipo,')
+        await this.sleep(500)
+    
+        await this.typeText('', 'idle', 'Tipo, ROH')
+        await this.sleep(500)
+    
+        await this.typeText('', 'idle', 'Tipo, ROH-BOH')
+        await this.sleep(500)
+    
+        // Sequência de risadas
+        for (let i = 1; i <= 10; i++) {
+          await this.typeText('', 'open mouth', 'HahA'.repeat(i))
+          await this.sleep(50)
+        }
+    
+        await this.sleep(1000)
+        await this.typeText('Ai ai, sou meio comédia às vezes, sabe?')
+        await this.sleep(1000)
+    
+        await this.typeText('Mas, enfim,')
+        await this.sleep(500)
+    
+        await this.typeText('E você, como se chama?')
+        this.showNameInput()
+      }
+    
+      async submitName() {
+        const nameInput = document.getElementById('name-input')
+        const name = nameInput.value
+    
+        if (name.length < 4) {
+          await this.typeText('Você sabe seu nome, né?')
+          return
+        }
+    
+        this.hideNameInput()
+    
+        await this.typeText('Olha olha olha, na verdade, eu não tenho muito tempo...', 'pokerface')
+        await this.sleep(1500)
+    
+        await this.typeText('Me desculpa! Você parece ser uma pessoa muito legal, mas...')
+        await this.sleep(1000)
+    
+        await this.typeText('A pessoa que me mandou aqui, queria falar sobre ↓ isso ↓', 'looking down')
+    
+        const listModel = 'None × ‹[H]» ‹[]» ‹[]» ... ‹[]» ‹[]» ‹[T]» × None'
+        this.showASCII(listModel)
+    
+        await this.sleep(2000)
+        await this.typeText('Reconhece?', 'idle', listModel)
+        await this.sleep(1500)
+    
+        await this.typeText('Ih, verdade, cê não consegue me responder, né?', 'idle', listModel)
+        await this.typeText('Hmmm', 'thinking')
+    
+        for (let i = 1; i <= 3; i++) {
+          await this.typeText('', 'thinking', 'Hmmm' + '.'.repeat(i))
+          await this.sleep(500)
+        }
+    
+        await this.typeText('Já sei!', 'open mouth')
+        await this.typeText('Aqui, toma')
+    
+        this.showResponseArea()
+        await this.typeText('Agora sempre que eu te perguntar algo,')
+        await this.typeText('Você pode responder digitando')
+        await this.typeText('A letra destacada que achar mais cabível.')
+        await this.typeText('Entendeu, né?')
+      }
+      async sendResponse(response) {
+        if (this.waitingForListRecognition) {
+          this.hideResponseArea()
+          if (response === 's') {
+            await this.onListRecognized()
+          } else {
+            await this.typeText('Não?', 'open mouth')
+            await this.typeText('Como assim pô? Me esforcei tanto desenhar ela...', 'pokerface')
+            await this.typeText('É uma lista! A estrutura de dados!')
+            await this.typeText('Tá vendo?')
+            this.showResponseArea()
+          }
+          return
+        }
+    
+        if (this.waitingForUnderstanding) {
+          this.hideResponseArea()
+          if (response === 's') {
+            this.waitingForUnderstanding = false
+            await this.continueArrowExplanation()
+          } else {
+            await this.explainListConcept()
+          }
+          return
+        }
+    
+        if (this.waitingForContinue) {
+          this.hideResponseArea()
+          if (response === 's') {
+            this.waitingForContinue = false
+            await this.finalExplanation()
+          } else {
+            await this.typeText('Tudo bem então, vamos fazer o seguinte...', 'idle')
+            await this.typeText('Você tá precisando de um descanso,', 'idle')
+            await this.typeText('Eu tô precisando de um descanso.', 'idle')
+            await this.typeText('Vou dar uma pausa aqui, beleza?', 'idle')
+            await this.typeText('Quando quiser continuar, é só teclar', 'idle')
+    
+            // Mostrar mensagem de pausa
+            document.getElementById('dialogue-text').innerHTML = 'Tô aqui pertinho, quando quiser continuar é só chamar!'
+            this.showResponseArea()
+            this.waitingForContinue = true
+          }
+          return
+        }
+    
+        // Resposta original para o primeiro conjunto de perguntas
+        this.hideResponseArea()
+    
+        if (response === 's') {
+          await this.typeText('Show de bola!', 'open mouth')
+        } else {
+          await this.typeText('Não?', 'pokerface')
+          await this.typeText('Pera, deixa eu repetir')
+          this.showResponseArea()
+          return
+        }
+    
+        await this.continueListExplanation()
+      }
+    
+      async finalExplanation() {
+        const swappedList = 'None × ‹<span class="text-red">[T]</span>» ‹[]» ‹[]» ... ‹[]» ‹[]» ‹<span class="text-blue">[H]</span>» × None'
+    
+        await this.typeText('Então, vamos lá!', 'open mouth', swappedList, true)
+        await this.typeText('Se formos então focar particularmente', 'idle', swappedList, true)
+        await this.typeText('Na posição que a Tail ocupa agora,', 'idle', swappedList, true)
+    
+        // Explicações finais sobre inversão de lista
+        await this.typeText('Podemos ver que precisamos inverter', 'idle', swappedList, true)
+        await this.typeText('Não apenas as referências Head e Tail,', 'idle', swappedList, true)
+        await this.typeText('Mas também todas as conexões internas!', 'idle', swappedList, true)
+        await this.sleep(2000)
+    
+        await this.typeText('E é assim que invertemos uma lista ligada!', 'open mouth', '', false)
+        await this.sleep(1000)
+        await this.typeText('Obrigado por me ouvir!', 'idle')
+        await this.sleep(1000)
+        await this.typeText('Tchau tchau!', 'open mouth')
+    
+        // Limpar tela e mostrar mensagem final
+        setTimeout(() => {
+          document.getElementById('dialogue-text').innerHTML = 'Fim do diálogo! 🎉'
+          document.getElementById('static-display').style.display = 'none'
+          document.getElementById('ascii-display').style.display = 'none'
+        }, 2000)
+      }
+      async continueListExplanation() {
+        await this.typeText('Enfim, voltando ao assunto...')
+    
+        const listModel = 'None × ‹[H]» ‹[]» ‹[]» ... ‹[]» ‹[]» ‹[T]» × None'
+        this.showASCII(listModel)
+        this.showResponseArea()
+    
+        await this.typeText('Reconhece isso aqui, né?', 'looking down', listModel)
+    
+        // Aguardar resposta do usuário sobre reconhecimento da lista
+        this.waitingForListRecognition = true
+      }
+    
+      async onListRecognized() {
+        this.waitingForListRecognition = false
+        this.hideResponseArea()
+    
+        await this.typeText('Pois é, uma lista.')
+        await this.sleep(1000)
+    
+        await this.typeText('Bom, como você já sabe... a lista é uma estrutura de dados')
+        await this.sleep(1000)
+    
+        await this.typeText('Mas tô aqui pra discutir um desafio específico relacionado a ela...')
+        await this.sleep(1000)
+    
+        await this.typeText('O desafio é o seguinte:')
+        await this.sleep(1000)
+    
+        await this.typeText('Que tal inverter uma lista?')
+        await this.sleep(1000)
+    
+        await this.typeText('Ou melhor, qual seria a maneira mais eficiente de fazer isso?')
+        await this.sleep(1000)
+    
+        await this.typeText('Bom, a gente pode fazer isso de várias maneiras...')
+        await this.sleep(1000)
+    
+        await this.typeText('Mas, acho que a primeira coisa que vem à cabeça é...')
+        await this.sleep(1000)
+    
+        // Mostrar lista com Head e Tail invertidos
+        const swappedList = 'None × ‹<span class="text-red">[T]</span>» ‹[]» ‹[]» ... ‹[]» ‹[]» ‹<span class="text-blue">[H]</span>» × None'
+        this.showASCII(swappedList)
+        await this.typeText('Fazer isso, né?', 'idle', swappedList)
+        await this.sleep(1500)
+    
+        await this.explainListInversion()
+      }
+    
+      async explainListInversion() {
+        const swappedList = 'None × ‹<span class="text-red">[T]</span>» ‹[]» ‹[]» ... ‹[]» ‹[]» ‹<span class="text-blue">[H]</span>» × None'
+    
+        await this.typeText('Trocando Head e Tail, o que era a "frente" da lista,', 'idle', swappedList)
+        await this.typeText('Passa a ser o "final" dela, e vice-versa.', 'idle', swappedList)
+        await this.typeText('Mas, pera aí! Como isso acontece exatamente?', 'idle', swappedList)
+        await this.typeText('Digamos que, a gente iguale <span class="text-red">Tail</span> a <span class="text-blue">Head</span>', 'idle', swappedList)
+    
+        // Lista com duas Heads
+        const twoHeadsList = 'None × ‹<span class="text-blue">[H]</span>» ‹[]» ‹[]» ... ‹[]» ‹[]» ‹<span class="text-blue">[H]</span>» × None'
+        this.showASCII(twoHeadsList)
+        await this.typeText('Eita... agora temos duas Heads!', 'idle', twoHeadsList)
+        await this.sleep(1500)
+    
+        await this.explainVariableAssignment()
+      }
+    
+      async explainVariableAssignment() {
+        const twoHeadsList = 'None × ‹<span class="text-blue">[H]</span>» ‹[]» ‹[]» ... ‹[]» ‹[]» ‹<span class="text-blue">[H]</span>» × None'
+    
+        await this.typeText('Isso porque <span class="text-red">Tail</span> = <span class="text-blue">Head</span> não é uma troca de valores,', 'idle', twoHeadsList)
+        await this.typeText('Só estamos dizendo que <span class="text-red">Tail</span> agora recebe', 'idle', twoHeadsList)
+        await this.typeText('O objeto contido dentro de <span class="text-blue">Head</span>.', 'idle', twoHeadsList)
+        await this.typeText('Mas assim como abrir espaço numa estante pra guardar um livro,', 'idle', twoHeadsList)
+        await this.sleep(1500)
+        await this.typeText('Não significa que haverá espaço para guardar novamente', 'idle', twoHeadsList)
+        await this.typeText('O antigo livro que tiramos para guardar o livro novo...', 'idle', twoHeadsList)
+        await this.typeText('O que significa que precisamos salvar', 'idle', twoHeadsList)
+        await this.typeText('O antigo valor de Tail, antes de trocá-lo por Head.', 'idle', twoHeadsList)
+        await this.sleep(1500)
+    
+        await this.introduceAUX()
+      }
+    
+      async introduceAUX() {
+        const auxAscii = `
+           __
+       _  |@@|
+      / \\ \\--/ __
+      ) O|----|  |   __
+     / / \\ }{ /\\ )_ / _\\\\
+     )/  /\\__/\\ \\__O (__
+    |/  (--/\\--)    \\__/
+    /   _)(  )(_
+       \`---''---\`
+    `
+    
+        this.showASCII(auxAscii)
+        await this.typeText('Meu mano aqui se chama AUX,', 'idle', auxAscii)
+        await this.sleep(1250)
+        await this.typeText('Tudo bem contigo, patrão?', 'idle', auxAscii)
+        await this.sleep(750)
+        await this.typeText('Ele se ofereceu pra guardar o valor de Tail', 'idle', auxAscii)
+        await this.typeText('Pra que a gente não perca na hora de trocar...', 'idle', auxAscii)
+    
+        await this.continueWithAUX()
+      }
+    
+      async continueWithAUX() {
+        // AUX segurando o valor de Tail
+        const auxHolding = `
+            __
+    (_|)   |@@|
+     \\ \\__ \\--/ __ 
+      \\o__|----|  |   __
+          \\ }{ /\\ )_ / _\\\\
+          /\\__/\\ \\__O (<span class="text-red">[T]</span>
+          (--/\\--)    \\__/
+          _)(  )(_
+         \`---''---\`
+    `
+    
+        this.showASCII(auxHolding)
+    
+        const listWithAux = auxHolding + '\n\nNone × ‹<span class="text-blue">[H]</span>» ‹[]» ‹[]» ... ‹[]» ‹[]» ‹<span class="text-blue">[H]</span>» × None'
+    
+        await this.typeText('Revisitando então o estado da nossa lista', 'idle', listWithAux)
+        await this.typeText('Graças ao AUX, que guardou o valor de Tail', 'idle', listWithAux)
+        await this.typeText('Podemos facilmente colocar Tail onde o Head original está', 'idle', listWithAux)
+    
+        // Lista corrigida
+        const correctedList = auxHolding + '\n\nNone × ‹<span class="text-red">[T]</span>» ‹[]» ‹[]» ... ‹[]» ‹[]» ‹<span class="text-blue">[H]</span>» × None'
+        this.showASCII(correctedList)
+    
+        await this.typeText('Obrigado AUX, você é o cara! Até mais tarde!', 'idle', correctedList)
+        await this.sleep(1000)
+    
+        await this.explainPointers()
+      }
+    
+      async explainPointers() {
+        const swappedList = 'None × ‹<span class="text-red">[T]</span>» ‹[]» ‹[]» ... ‹[]» ‹[]» ‹<span class="text-blue">[H]</span>» × None'
+        this.showASCII(swappedList)
+    
+        await this.typeText('Só que, isso não é o suficiente, né?', 'idle', swappedList)
+        await this.typeText('Por causa desses caras aqui: ‹[]»', 'idle', swappedList)
+        await this.typeText('Mais especificamente, ‹ » , esses dois.', 'idle', swappedList)
+        await this.typeText('No nosso caso, eles representam', 'idle', swappedList)
+        await this.typeText('Os ponteiros que identificam', 'idle', swappedList)
+        await this.typeText('Quais elementos precedem e sucedem', 'idle', swappedList)
+        await this.typeText('O objeto observado, seja lá qual você escolha.', 'idle', swappedList)
+        await this.typeText('Até aí tudo bem, né?', 'idle', swappedList)
+        await this.sleep(1500)
+    
+        this.showResponseArea()
+        await this.typeText('Estamos na mesma página, então?', 'thinking', swappedList)
+        this.waitingForUnderstanding = true
+      }
+    
+      async sendResponse(response) {
+        if (this.waitingForListRecognition) {
+          this.hideResponseArea()
+          if (response === 's') {
+            await this.onListRecognized()
+          } else {
+            await this.typeText('Não?', 'open mouth')
+            await this.typeText('Como assim pô? Me esforcei tanto desenhar ela...', 'pokerface')
+            await this.typeText('É uma lista! A estrutura de dados!')
+            await this.typeText('Tá vendo?')
+            this.showResponseArea()
+          }
+          return
+        }
+    
+        if (this.waitingForUnderstanding) {
+          this.hideResponseArea()
+          if (response === 's') {
+            this.waitingForUnderstanding = false
+            await this.continueArrowExplanation()
+          } else {
+            await this.explainListConcept()
+          }
+          return
+        }
+    
+        // Resposta original
+        this.hideResponseArea()
+    
+        if (response === 's') {
+          await this.typeText('Show de bola!', 'open mouth')
+        } else {
+          await this.typeText('Não?', 'pokerface')
+          await this.typeText('Pera, deixa eu repetir')
+          this.showResponseArea()
+          return
+        }
+    
+        await this.continueListExplanation()
+      }
+    
+      async explainListConcept() {
+        await this.typeText('Bom, resumidamente, nesse conceito de lista,')
+        await this.typeText('Não usamos um conceito de índice,')
+        await this.typeText('Então a única forma de saber "aonde"')
+        await this.typeText('Cada objeto se encontra, é através desses ponteiros,')
+        await this.typeText('Pense que é como uma corrente.')
+        await this.typeText('Cada elo da corrente aponta para o próximo,')
+        await this.typeText('E cada um também sabe qual é o elo anterior.')
+    
+        this.showResponseArea()
+        await this.typeText('Agora fez mais sentido?')
+        this.waitingForUnderstanding = true
+      }
+    
+      async continueArrowExplanation() {
+        const swappedList = 'None × ‹<span class="text-red">[T]</span>» ‹[]» ‹[]» ... ‹[]» ‹[]» ‹<span class="text-blue">[H]</span>» × None'
+    
+        await this.typeText('Então, vamos lá!', 'open mouth', swappedList)
+        await this.typeText('De modo geral, essas setinhas são tão importantes', 'idle', swappedList)
+        await this.typeText('Pra esse exercício, que a gente vai precisar', 'idle', swappedList)
+        await this.typeText('Deixar elas bem visíveis, pra não confundir.', 'idle', swappedList)
+    
+        await this.typeText('Que tal...', 'thinking', swappedList)
+        await this.sleep(1500)
+        await this.typeText('', 'thinking', 'Assim...')
+        await this.sleep(500)
+        await this.typeText('', 'thinking', 'Assim... ‹›«»', true)
+    
+        await this.explainColoredArrows()
+      }
+    
+      async explainColoredArrows() {
+        const swappedList = 'None × ‹<span class="text-red">[T]</span>» ‹[]» ‹[]» ... ‹[]» ‹[]» ‹<span class="text-blue">[H]</span>» × None'
+    
+        await this.typeText('Melhorou, né?', 'idle', swappedList, true)
+        await this.typeText('As setas simples, ou seja, ‹ & › , destacadas em laranja,', 'idle', swappedList, true)
+        await this.typeText('Representam a variável do nosso objeto que', 'idle', swappedList, true)
+        await this.typeText('Nos mostra qual é o elemento que o precede', 'idle', swappedList, true)
+        await this.typeText('Já as setas duplas, ou seja, » & « , destacadas em azul,', 'idle', swappedList, true)
+        await this.typeText('Representam a variável do nosso objeto que', 'idle', swappedList, true)
+        await this.typeText('Nos mostra qual é o elemento que o sucede', 'idle', swappedList, true)
+        await this.sleep(1500)
+    
+        await this.explainArrowInversion()
+      }
+    
+      async explainArrowInversion() {
+        const swappedList = 'None × ‹<span class="text-red">[T]</span>» ‹[]» ‹[]» ... ‹[]» ‹[]» ‹<span class="text-blue">[H]</span>» × None'
+    
+        await this.typeText('Seguindo essa lógica,', 'idle', swappedList, true)
+        await this.typeText('Acho que deu pra perceber que a gente', 'idle', swappedList, true)
+        await this.typeText('Também vai precisar inverter essas setinhas', 'idle', swappedList, true)
+        await this.typeText('Pra inverter a lista, certo?', 'idle', swappedList, true)
+        await this.sleep(1500)
+        await this.typeText('Já que, simplesmente trocar Head e Tail', 'idle', swappedList, true)
+        await this.typeText('Não trocou as setinhas, de cada elemento.', 'idle', swappedList, true)
+        await this.typeText('Então é como se olhássemos para trás,', 'idle', swappedList, true)
+        await this.typeText('Mas continuássemos andando para frente.', 'idle', swappedList, true)
+    
+        this.showResponseArea()
+        await this.typeText('Até aqui tudo bem? Posso continuar?', 'idle', swappedList, true)
+        this.waitingForContinue = true
+      }
+    }
+    
+    // Funções globais para interação
+    function sendResponse(response) {
+      if (window.bohDialogue) {
+        window.bohDialogue.sendResponse(response)
+      }
+    }
+    
+    function submitName() {
+      if (window.bohDialogue) {
+        window.bohDialogue.submitName()
+      }
+    }
+    
+    // Inicializar quando a página carregar
+    document.addEventListener('DOMContentLoaded', function () {
+      // Aguardar um clique para ativar áudio (requisito dos navegadores)
+      document.addEventListener(
+        'click',
+        function initAudio() {
+          window.bohDialogue = new BOHDialogue()
+          document.removeEventListener('click', initAudio)
+        },
+        { once: true }
+      )
+    
+      // Mostrar mensagem para clicar
+      document.getElementById('dialogue-text').innerHTML = 'Clique em qualquer lugar para começar...'
+    })
+    
+    // Permitir teclas S/N para respostas
+    document.addEventListener('keydown', function (event) {
+      const responseArea = document.getElementById('response-area')
+      if (responseArea.style.display !== 'none') {
+        if (event.key.toLowerCase() === 's' || event.key.toLowerCase() === 'y') {
+          sendResponse('s')
+        } else if (event.key.toLowerCase() === 'n') {
+          sendResponse('n')
+        }
+      }
+    })
+  </script>
+{% endblock %}
