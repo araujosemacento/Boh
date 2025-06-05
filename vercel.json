@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "static_site/**",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "api/wsgi.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/wsgi.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/static_site/$1"
+    }
+  ],
+  "functions": {
+    "api/wsgi.py": {
+      "runtime": "python3.11"
+    }
+  },
+  "env": {
+    "DJANGO_SETTINGS_MODULE": "boh.settings"
+  }
+}
