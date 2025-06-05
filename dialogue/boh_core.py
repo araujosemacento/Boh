@@ -5,6 +5,32 @@ Versão consolidada baseada em _Boh.py original
 
 from random import choice
 import json
+import re
+
+
+def calculate_optimal_delay(text):
+    """
+    Calcula delay otimizado baseado no comprimento do texto:
+    - Frases curtas (≤30 chars): 750-1000ms - Precisam de mais tempo para serem absorvidas
+    - Frases médias (30-50 chars): 500-1000ms - Podem ser lidas durante a animação
+    - Frases longas (≥50 chars): 1500-3000ms proporcionalmente - Tempo para leitura completa
+    """
+    # Remove tags HTML para contagem precisa
+    clean_text = re.sub(r"<[^>]+>", "", text).strip()
+    char_count = len(clean_text)
+
+    if char_count <= 30:
+        # Frases curtas: 750-1000ms
+        # Mais tempo porque são rápidas de aparecer mas podem ser perdidas
+        return min(1000, max(750, char_count * 30))
+    elif char_count <= 50:
+        # Frases médias: 500-1000ms
+        # Podem ser lidas enquanto a animação acontece
+        return min(1000, max(500, char_count * 20))
+    else:
+        # Frases longas: 1500-3000ms proporcionalmente
+        # Precisam de tempo para serem lidas completamente
+        return min(3000, max(1500, char_count * 25))
 
 
 class ShuffledSelector:
@@ -17,7 +43,7 @@ class ShuffledSelector:
     def select(self):
         if not self.available_indices:
             self.available_indices = list(range(len(self.items)))
-        
+
         idx = choice(self.available_indices)
         self.available_indices.remove(idx)
         return self.items[idx]
@@ -41,8 +67,15 @@ class BOHCore:
         """Inicializa as expressões do BOH"""
         return {
             "idle": [
-                "[ ▀ ¸ ▀]", "[ ▀ ° ▀]", "[ ▀ ■ ▀]", "[ ▀ ─ ▀]", 
-                "[ ▀ ~ ▀]", "[ ▀ ▄ ▀]", "[ ▀ ¬ ▀]", "[ ▀ · ▀]", "[ ▀ _ ▀]"
+                "[ ▀ ¸ ▀]",
+                "[ ▀ ° ▀]",
+                "[ ▀ ■ ▀]",
+                "[ ▀ ─ ▀]",
+                "[ ▀ ~ ▀]",
+                "[ ▀ ▄ ▀]",
+                "[ ▀ ¬ ▀]",
+                "[ ▀ · ▀]",
+                "[ ▀ _ ▀]",
             ],
             "pokerface": ["[ ▀ ‗ ▀]", "[ ▀ ¯ ▀]", "[ ▀ ¡ ▀]"],
             "thinking": ["[ ─ ´ ─]", "[ ─ » ─]"],
@@ -65,7 +98,7 @@ class BOHCore:
             "progression_1": "None × «[T]› «[]› ‹<span class='text-red'>[]</span>» ... ‹[]» ‹[]» ‹[H]» × None",
             "progression_2": "None × «[T]› «[]› «[]› ... ‹<span class='text-red'>[]</span>» ‹[]» ‹[H]» × None",
             "final_inversion": "None × «[T]› «[]› «[]› ... «[]› «[]› «<span class='text-red'>[H]</span>» × None",
-            "complete": "None × «[T]› «[]› «[]› ... «[]› «[]› «[H]› <span class='text-red'>× <span class='text-purple'>None</span></span>"
+            "complete": "None × «[T]› «[]› «[]› ... «[]› «[]› «[H]› <span class='text-red'>× <span class='text-purple'>None</span></span>",
         }
 
     def _init_aux_art(self):
@@ -80,7 +113,6 @@ class BOHCore:
 |/  (--/\\--)    \\__/
 /   _)(  )(_
    `---''---`""",
-
             "holding_tail": """       __
    _  |@@|
   / \\ \\--/ __
@@ -90,7 +122,6 @@ class BOHCore:
 |/  (--/\\--)    \\__/
 /   _)(  )(_
    `---''---`""",
-
             "waving": """        __
  _(\\    |@@|
 (__/\\__ \\--/ __
@@ -100,7 +131,6 @@ class BOHCore:
       (--/\\--)    \\__/
       _)(  )(_
      `---''---`""",
-
             "holding_arrow": """       __
    _  |@@|
   / \\ \\--/ __
@@ -110,7 +140,6 @@ class BOHCore:
 |/  (--/\\--)    \\__/
 /   _)(  )(_
    `---''---`""",
-
             "goodbye": """        __
 (_|)   |@@|
  \\ \\__ \\--/ __ 
@@ -119,7 +148,7 @@ class BOHCore:
       /\\__/\\ \\__O (__
      (--/\\--)    \\__/
      _)(  )(_
-    `---''---`"""
+    `---''---`""",
         }
 
     def _init_messages(self):
@@ -133,7 +162,7 @@ class BOHCore:
             "english_positive": "Sim, inglês também tá valendo...",
             "recognition_retry": "Como assim pô? Me esforcei tanto desenhar ela...",
             "understanding_negative": "Tudo bem então, vamos fazer o seguinte...",
-            "pause_message": "Tô aqui pertinho, quando quiser continuar é só chamar!"
+            "pause_message": "Tô aqui pertinho, quando quiser continuar é só chamar!",
         }
 
     def _init_dialogue_sequence(self):
@@ -145,35 +174,35 @@ class BOHCore:
                 "type": "text",
                 "text": "Oi, tudo bem?",
                 "expression": "idle",
-                "delay": 1000
+                "delay": 100,
             },
             {
                 "id": "introduction",
-                "type": "text", 
+                "type": "text",
                 "text": "Muito obrigado por executar o meu script",
                 "expression": "idle",
-                "delay": 1000
+                "delay": 500,
             },
             {
                 "id": "name_reveal",
                 "type": "text",
                 "text": "Eu me chamo <span class='text-green text-bold'>BOH!</span>",
                 "expression": "idle",
-                "delay": 750
+                "delay": 400,
             },
             {
                 "id": "laugh",
                 "type": "text",
                 "text": "He He",
                 "expression": "open_mouth",
-                "delay": 750
+                "delay": 400,
             },
             {
                 "id": "buildup",
                 "type": "text",
                 "text": "Sabe...",
                 "expression": "thinking",
-                "delay": 750
+                "delay": 400,
             },
             {
                 "id": "name_play_sequence",
@@ -181,61 +210,60 @@ class BOHCore:
                 "steps": [
                     "Tipo,",
                     "Tipo, <span class='text-bold'>ROH</span>",
-                    "Tipo, <span class='text-bold'>ROH-</span><span class='text-bold text-green'>BOH</span>"
+                    "Tipo, <span class='text-bold'>ROH-</span><span class='text-bold text-green'>BOH</span>",
                 ],
                 "expression": "idle",
-                "delay": 500
+                "delay": 500,
             },
             {
                 "id": "laughter_sequence",
                 "type": "laughter",
                 "count": 10,
                 "expression": "open_mouth",
-                "delay": 50
+                "delay": 50,
             },
             {
                 "id": "self_aware",
                 "type": "text",
                 "text": "Ai ai, sou meio comédia às vezes, sabe?",
                 "expression": "idle",
-                "delay": 1000
+                "delay": 1000,
             },
             {
                 "id": "transition",
                 "type": "text",
                 "text": "Mas, enfim,",
                 "expression": "idle",
-                "delay": 500
+                "delay": 500,
             },
             {
                 "id": "ask_name",
                 "type": "input_name",
                 "text": "E você, como se chama?",
                 "expression": "idle",
-                "delay": 500
+                "delay": 500,
             },
-
             # Sequência da conversa sobre lista
             {
                 "id": "time_constraint",
                 "type": "text",
                 "text": "Olha olha olha, na verdade, eu não tenho muito tempo...",
                 "expression": "pokerface",
-                "delay": 1500
+                "delay": 300,
             },
             {
                 "id": "apology",
                 "type": "text",
                 "text": "Me desculpa! Você parece ser uma pessoa muito legal, mas...",
                 "expression": "idle",
-                "delay": 1000
+                "delay": 200,
             },
             {
                 "id": "topic_intro",
                 "type": "text",
                 "text": "A pessoa que me mandou aqui, queria falar sobre ↓ isso ↓",
                 "expression": "looking_down",
-                "delay": 200
+                "delay": 200,
             },
             {
                 "id": "show_list",
@@ -243,7 +271,7 @@ class BOHCore:
                 "text": "Reconhece?",
                 "ascii": "basic",
                 "expression": "idle",
-                "delay": 1500
+                "delay": 1500,
             },
             {
                 "id": "response_problem",
@@ -251,21 +279,21 @@ class BOHCore:
                 "text": "Ih, verdade, cê não consegue me responder, né?",
                 "ascii": "basic",
                 "expression": "idle",
-                "delay": 1000
+                "delay": 1000,
             },
             {
                 "id": "thinking_sequence",
                 "type": "thinking_dots",
                 "count": 3,
                 "expression": "thinking",
-                "delay": 500
+                "delay": 500,
             },
             {
                 "id": "solution",
                 "type": "text",
                 "text": "Já sei!",
                 "expression": "open_mouth",
-                "delay": 500
+                "delay": 500,
             },
             {
                 "id": "response_intro",
@@ -273,9 +301,8 @@ class BOHCore:
                 "text": "Aqui, toma",
                 "show_controls": True,
                 "expression": "idle",
-                "delay": 1500
+                "delay": 1500,
             },
-
             # Instruções sobre controles
             {
                 "id": "explain_controls_1",
@@ -283,7 +310,7 @@ class BOHCore:
                 "text": "Agora sempre que eu te perguntar algo,",
                 "show_controls": True,
                 "expression": "idle",
-                "delay": 1000
+                "delay": 1000,
             },
             {
                 "id": "explain_controls_2",
@@ -291,7 +318,7 @@ class BOHCore:
                 "text": "Você pode responder digitando",
                 "show_controls": True,
                 "expression": "idle",
-                "delay": 1000
+                "delay": 1000,
             },
             {
                 "id": "explain_controls_3",
@@ -299,23 +326,22 @@ class BOHCore:
                 "text": "A letra destacada que achar mais cabível.",
                 "show_controls": True,
                 "expression": "idle",
-                "delay": 1000
+                "delay": 1000,
             },
             {
                 "id": "first_question",
                 "type": "response",
                 "text": "Entendeu, né?",
                 "show_controls": True,
-                "expression": "idle"
+                "expression": "idle",
             },
-
             # Continuação do tópico sobre listas
             {
                 "id": "back_to_topic",
                 "type": "text",
                 "text": "Enfim, voltando ao assunto...",
                 "expression": "idle",
-                "delay": 1000
+                "delay": 1000,
             },
             {
                 "id": "list_recognition",
@@ -328,9 +354,9 @@ class BOHCore:
                         "Não?",
                         "Como assim pô? Me esforcei tanto desenhar ela...",
                         "É uma lista! A estrutura de dados!",
-                        "Tá vendo?"
+                        "Tá vendo?",
                     ]
-                }
+                },
             },
             {
                 "id": "list_explanation",
@@ -338,9 +364,8 @@ class BOHCore:
                 "text": "Pois é, uma lista.",
                 "ascii": "basic",
                 "expression": "idle",
-                "delay": 1000
+                "delay": 1000,
             },
-
             # Explicação sobre estrutura de dados
             {
                 "id": "list_challenge_intro",
@@ -348,7 +373,7 @@ class BOHCore:
                 "text": "Bom, como você já sabe... a lista é uma estrutura de dados",
                 "ascii": "basic",
                 "expression": "idle",
-                "delay": 1000
+                "delay": 1000,
             },
             {
                 "id": "list_challenge_specific",
@@ -356,7 +381,7 @@ class BOHCore:
                 "text": "Mas tô aqui pra discutir um desafio específico relacionado a ela...",
                 "ascii": "basic",
                 "expression": "idle",
-                "delay": 1000
+                "delay": 1000,
             },
             {
                 "id": "challenge_reveal",
@@ -364,7 +389,7 @@ class BOHCore:
                 "text": "O desafio é o seguinte:",
                 "ascii": "basic",
                 "expression": "idle",
-                "delay": 1000
+                "delay": 1000,
             },
             {
                 "id": "inversion_question",
@@ -372,7 +397,7 @@ class BOHCore:
                 "text": "Que tal inverter uma lista?",
                 "ascii": "basic",
                 "expression": "idle",
-                "delay": 1000
+                "delay": 1000,
             },
             {
                 "id": "efficiency_question",
@@ -380,7 +405,7 @@ class BOHCore:
                 "text": "Ou melhor, qual seria a maneira mais eficiente de fazer isso?",
                 "ascii": "basic",
                 "expression": "idle",
-                "delay": 1000
+                "delay": 1000,
             },
             {
                 "id": "multiple_ways",
@@ -388,7 +413,7 @@ class BOHCore:
                 "text": "Bom, a gente pode fazer isso de várias maneiras...",
                 "ascii": "basic",
                 "expression": "idle",
-                "delay": 1000
+                "delay": 1000,
             },
             {
                 "id": "first_thought",
@@ -396,9 +421,8 @@ class BOHCore:
                 "text": "Mas, acho que a primeira coisa que vem à cabeça é...",
                 "ascii": "basic",
                 "expression": "idle",
-                "delay": 1000
+                "delay": 1000,
             },
-
             # Demonstração da troca Head/Tail
             {
                 "id": "swap_demo",
@@ -406,23 +430,23 @@ class BOHCore:
                 "text": "Fazer isso, né?",
                 "ascii": "colored",
                 "expression": "idle",
-                "delay": 1500
+                "delay": 1500,
             },
             {
                 "id": "swap_explanation_1",
                 "type": "text",
-                "text": "Trocando Head e Tail, o que era a \"frente\" da lista,",
+                "text": 'Trocando Head e Tail, o que era a "frente" da lista,',
                 "ascii": "swapped",
                 "expression": "idle",
-                "delay": 1000
+                "delay": 1000,
             },
             {
                 "id": "swap_explanation_2",
                 "type": "text",
-                "text": "Passa a ser o \"final\" dela, e vice-versa.",
+                "text": 'Passa a ser o "final" dela, e vice-versa.',
                 "ascii": "swapped",
                 "expression": "idle",
-                "delay": 1000
+                "delay": 1000,
             },
             {
                 "id": "but_wait",
@@ -430,7 +454,7 @@ class BOHCore:
                 "text": "Mas, pera aí! Como isso acontece exatamente?",
                 "ascii": "swapped",
                 "expression": "thinking",
-                "delay": 1000
+                "delay": 1000,
             },
             {
                 "id": "assignment_example",
@@ -438,9 +462,8 @@ class BOHCore:
                 "text": "Digamos que, a gente iguale <span class='text-red'>Tail</span> a <span class='text-blue'>Head</span>",
                 "ascii": "swapped",
                 "expression": "idle",
-                "delay": 1000
+                "delay": 1000,
             },
-
             # Problema dos dois Heads
             {
                 "id": "two_heads_problem",
@@ -448,7 +471,7 @@ class BOHCore:
                 "text": "Eita... agora temos duas Heads!",
                 "ascii": "two_heads",
                 "expression": "open_mouth",
-                "delay": 1500
+                "delay": 1500,
             },
             {
                 "id": "assignment_explanation_1",
@@ -456,7 +479,7 @@ class BOHCore:
                 "text": "Isso porque <span class='text-red'>Tail</span> = <span class='text-blue'>Head</span> não é uma troca de valores,",
                 "ascii": "two_heads",
                 "expression": "idle",
-                "delay": 1000
+                "delay": 1000,
             },
             {
                 "id": "assignment_explanation_2",
@@ -464,7 +487,7 @@ class BOHCore:
                 "text": "Só estamos dizendo que <span class='text-red'>Tail</span> agora recebe",
                 "ascii": "two_heads",
                 "expression": "idle",
-                "delay": 1000
+                "delay": 1000,
             },
             {
                 "id": "assignment_explanation_3",
@@ -472,9 +495,8 @@ class BOHCore:
                 "text": "O objeto contido dentro de <span class='text-blue'>Head</span>.",
                 "ascii": "two_heads",
                 "expression": "idle",
-                "delay": 1000
+                "delay": 1000,
             },
-
             # Analogia da estante
             {
                 "id": "bookshelf_analogy_1",
@@ -482,7 +504,7 @@ class BOHCore:
                 "text": "Mas assim como abrir espaço numa estante pra guardar um livro,",
                 "ascii": "two_heads",
                 "expression": "thinking",
-                "delay": 1500
+                "delay": 1500,
             },
             {
                 "id": "bookshelf_analogy_2",
@@ -490,7 +512,7 @@ class BOHCore:
                 "text": "Não significa que haverá espaço para guardar novamente",
                 "ascii": "two_heads",
                 "expression": "thinking",
-                "delay": 1000
+                "delay": 1000,
             },
             {
                 "id": "bookshelf_analogy_3",
@@ -498,7 +520,7 @@ class BOHCore:
                 "text": "O antigo livro que tiramos para guardar o livro novo...",
                 "ascii": "two_heads",
                 "expression": "thinking",
-                "delay": 1000
+                "delay": 1000,
             },
             {
                 "id": "aux_need_1",
@@ -506,7 +528,7 @@ class BOHCore:
                 "text": "O que significa que precisamos salvar",
                 "ascii": "two_heads",
                 "expression": "idle",
-                "delay": 1000
+                "delay": 1000,
             },
             {
                 "id": "aux_need_2",
@@ -514,9 +536,8 @@ class BOHCore:
                 "text": "O antigo valor de Tail, antes de trocá-lo por Head.",
                 "ascii": "two_heads",
                 "expression": "idle",
-                "delay": 1500
+                "delay": 1500,
             },
-
             # Introdução do AUX
             {
                 "id": "aux_introduction",
@@ -524,7 +545,7 @@ class BOHCore:
                 "text": "Meu mano aqui se chama AUX,",
                 "aux": "normal",
                 "expression": "idle",
-                "delay": 1250
+                "delay": 1250,
             },
             {
                 "id": "aux_greeting",
@@ -532,7 +553,7 @@ class BOHCore:
                 "text": "Tudo bem contigo, patrão?",
                 "aux": "normal",
                 "expression": "idle",
-                "delay": 750
+                "delay": 400,
             },
             {
                 "id": "aux_offer",
@@ -540,7 +561,7 @@ class BOHCore:
                 "text": "Ele se ofereceu pra guardar o valor de Tail",
                 "aux": "holding_tail",
                 "expression": "idle",
-                "delay": 1000
+                "delay": 1000,
             },
             {
                 "id": "aux_purpose",
@@ -548,25 +569,23 @@ class BOHCore:
                 "text": "Pra que a gente não perca na hora de trocar...",
                 "aux": "waving",
                 "expression": "idle",
-                "delay": 1000
-            }
-
-            # ... continuação será implementada nos próximos passos
+                "delay": 500,
+            },
         ]
 
     def colorize_arrows(self, text):
         """Coloriza as setas no texto"""
         if not text:
             return text
-        
+
         # Substituir setas simples (laranja)
         text = text.replace("‹", "<span class='text-orange'>‹</span>")
         text = text.replace("›", "<span class='text-orange'>›</span>")
-        
+
         # Substituir setas duplas (azul)
         text = text.replace("»", "<span class='text-blue'>»</span>")
         text = text.replace("«", "<span class='text-blue'>«</span>")
-        
+
         return text
 
     def get_expression(self, expr_type="idle"):
@@ -607,7 +626,7 @@ class BOHCore:
             "current_step": self.current_step,
             "user_name": self.user_name,
             "paused": self.paused,
-            "completed": self.completed
+            "completed": self.completed,
         }
 
     def from_json(self, data):
@@ -632,5 +651,5 @@ class BOHCore:
             "list_models": self.list_models,
             "aux_art": self.aux_art,
             "messages": self.messages,
-            "current_state": self.to_json()
+            "current_state": self.to_json(),
         }

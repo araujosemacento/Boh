@@ -28,12 +28,10 @@ class BOHDialogue {
     this.audioFiles = [];
 
     // Elementos DOM - inicializar após DOM carregar
-    this.elements = {};
-
-    // Configurações
+    this.elements = {};    // Configurações
     this.config = {
-      typingSpeed: 80,
-      expressionChangeSpeed: 100,
+      typingSpeed: 30, // Mais rápido (era 80)
+      expressionChangeSpeed: 50, // Mais rápido (era 100)
       audioVolume: 0.7,
       sfxPath: '/static/dialogue/sfx/'
     };
@@ -104,7 +102,6 @@ class BOHDialogue {
       throw error;
     }
   }
-
   /**
    * Pré-carrega arquivos de áudio
    */
@@ -112,7 +109,7 @@ class BOHDialogue {
     const audioPromises = [];
 
     for (let i = 1; i <= 8; i++) {
-      const audio = new Audio(`${this.config.sfxPath}p03voice_calm#${i}.wav`);
+      const audio = new Audio(`${this.config.sfxPath}p03voice_calm%23${i}.wav`);
       audio.preload = 'auto';
       audio.volume = this.config.audioVolume;
       this.audioFiles.push(audio);
@@ -145,7 +142,7 @@ class BOHDialogue {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           action: 'get_dialogue_item',
           step: this.currentStep
         })
@@ -178,9 +175,7 @@ class BOHDialogue {
     // Aguarda delay se especificado
     if (item.delay) {
       await this.wait(item.delay);
-    }
-
-    // Processa baseado no tipo
+    }    // Processa baseado no tipo
     switch (item.type) {
       case 'text':
         await this.processTextItem(item);
@@ -188,6 +183,12 @@ class BOHDialogue {
       case 'name_input':
         await this.processNameInputItem(item);
         return; // Não avança automaticamente
+      case 'name_play':
+        await this.processNamePlayItem(item);
+        break;
+      case 'laughter':
+        await this.processLaughterItem(item);
+        break;
       case 'response':
         await this.processResponseItem(item);
         return; // Não avança automaticamente
@@ -252,7 +253,6 @@ class BOHDialogue {
       await this.typeText(item.text, this.config.typingSpeed);
     }
   }
-
   /**
    * Processa atualização de texto estático
    */
@@ -262,6 +262,44 @@ class BOHDialogue {
     }
     if (item.text) {
       await this.typeText(item.text, this.config.typingSpeed);
+    }
+  }
+
+  /**
+   * Processa item de name_play (digitação do nome)
+   */
+  async processNamePlayItem(item) {
+    if (item.text) {
+      await this.typeText(item.text, this.config.typingSpeed);
+    }
+    // Simula digitação aleatória do nome
+    if (item.random_chars && item.count) {
+      const chars = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'];
+      for (let i = 0; i < item.count; i++) {
+        const randomChar = chars[Math.floor(Math.random() * chars.length)];
+        await this.typeText(randomChar, 200);
+        await this.wait(100);
+      }
+    }
+  }
+
+  /**
+   * Processa item de laughter (risada)
+   */
+  async processLaughterItem(item) {
+    const laughText = item.text || "He";
+    const count = item.count || 5;
+    const delay = item.delay || 100;
+
+    for (let i = 0; i < count; i++) {
+      await this.typeText(laughText, 50);
+      await this.wait(delay);
+      if (i < count - 1) {
+        // Adiciona espaço entre risadas
+        if (this.elements.dialogueText) {
+          this.elements.dialogueText.innerHTML += " ";
+        }
+      }
     }
   }
 
@@ -325,7 +363,7 @@ class BOHDialogue {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           action: 'colorize_arrows',
           text: text
         })
@@ -704,7 +742,7 @@ window.submitName = function () {
 window.bohDialogue = null;
 
 // Inicialização automática
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
   window.bohDialogue = new BOHDialogue();
   console.log('BOHDialogue instanciado globalmente');
 });
