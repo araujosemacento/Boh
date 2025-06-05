@@ -190,3 +190,4 @@ Desktop.ini
 _site/
 dist/
 build/
+.vercel

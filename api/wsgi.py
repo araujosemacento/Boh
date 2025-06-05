@@ -60,7 +60,9 @@ def handler(request):
 
         # Preparar resposta
         status_code = int(response_data[0].split()[0]) if response_data else 500
-        response_headers = dict(response_data[1]) if len(response_data) > 1 else {}        # Garantir CORS
+        response_headers = (
+            dict(response_data[1]) if len(response_data) > 1 else {}
+        )  # Garantir CORS
         response_headers.update(
             {
                 "Access-Control-Allow-Origin": "https://araujosemacento.github.io",
@@ -80,7 +82,8 @@ def handler(request):
 
     except Exception as e:
         return {
-            "statusCode": 500,            "headers": {
+            "statusCode": 500,
+            "headers": {
                 "Content-Type": "application/json",
                 "Access-Control-Allow-Origin": "https://araujosemacento.github.io",
                 "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
