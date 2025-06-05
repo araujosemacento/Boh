@@ -1,0 +1,226 @@
+name: Deploy Django App to GitHub Pages
+
+on:
+  push:
+    branches: [ "ghpage" ]
+  pull_request:
+    branches: [ "ghpage" ]
+  workflow_dispatch:
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install Django
+        pip install -r requirements.txt || echo "No requirements.txt found, using basic Django"
+        
+    - name: Create requirements.txt if not exists
+      run: |
+        if [ ! -f requirements.txt ]; then
+          echo "Django>=4.0" > requirements.txt
+        fi
+        
+    - name: Configure Django settings for static build
+      run: |
+        # Create a settings file for static generation
+        cat << EOF > static_settings.py
+        from boh.settings import *
+        
+        # Override settings for static generation
+        DEBUG = False
+        ALLOWED_HOSTS = ['*']
+        
+        # Static files settings
+        STATIC_URL = './'
+        STATIC_ROOT = 'staticfiles'
+        
+        # Database - use in-memory for static generation
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': ':memory:',
+            }
+        }
+        EOF
+        
+    - name: Collect static files
+      run: |
+        python manage.py collectstatic --noinput --settings=static_settings
+        
+    - name: Generate static HTML
+      run: |
+        # Create a script to generate static HTML
+        cat << EOF > generate_static.py
+        import os
+        import django
+        from django.conf import settings
+        from django.test import Client
+        from django.core.management import setup_environ
+        
+        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'static_settings')
+        django.setup()
+        
+        client = Client()
+        
+        # Create output directory
+        os.makedirs('static_site', exist_ok=True)
+        
+        # Copy static files
+        import shutil
+        if os.path.exists('staticfiles'):
+            shutil.copytree('staticfiles', 'static_site/static', dirs_exist_ok=True)
+        
+        # Copy media files if they exist
+        if os.path.exists('dialogue/static'):
+            shutil.copytree('dialogue/static', 'static_site', dirs_exist_ok=True)
+        
+        # Generate main pages
+        urls_to_generate = [
+            ('/', 'index.html'),
+            ('/dialogue/', 'dialogue.html'),
+            ('/main/', 'main.html'),
+        ]
+        
+        for url, filename in urls_to_generate:
+            try:
+                response = client.get(url)
+                if response.status_code == 200:
+                    with open(f'static_site/{filename}', 'w', encoding='utf-8') as f:
+                        f.write(response.content.decode('utf-8'))
+                    print(f'Generated {filename}')
+            except Exception as e:
+                print(f'Error generating {filename}: {e}')
+        
+        # Create a simple index.html if none was generated
+        if not os.path.exists('static_site/index.html'):
+            with open('static_site/index.html', 'w', encoding='utf-8') as f:
+                f.write('''<!DOCTYPE html>
+        <html>
+        <head>
+            <title>BOH - Diálogo Interativo</title>
+            <meta http-equiv="refresh" content="0; url=./dialogue.html">
+        </head>
+        <body>
+            <p>Redirecionando para <a href="./dialogue.html">BOH Diálogo</a></p>
+        </body>
+        </html>''')
+        
+        print('Static site generation completed')
+        EOF
+        
+        python generate_static.py
+        
+    - name: Copy template files as static HTML
+      run: |
+        # Copy templates directly if static generation fails
+        mkdir -p static_site
+        if [ -d "dialogue/templates/dialogue" ]; then
+          cp dialogue/templates/dialogue/*.html static_site/ 2>/dev/null || true
+        fi
+        
+        # Ensure we have CSS and JS
+        if [ -d "dialogue/static" ]; then
+          cp -r dialogue/static/* static_site/ 2>/dev/null || true
+        fi
+        
+        # Create a proper index.html
+        cat << EOF > static_site/index.html
+        <!DOCTYPE html>
+        <html lang="pt-br">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>BOH - Diálogo Interativo</title>
+            <link rel="stylesheet" href="dialogue/css/style.css">
+        </head>
+        <body>
+            <div class="boh-display">
+                <div class="expression" id="boh-expression">[ ▀ ¸ ▀]</div>
+                <div class="dialogue-container">
+                    <span class="dialogue-prefix">──┤</span>
+                    <span class="dialogue-text" id="dialogue-text">Clique em qualquer lugar para começar...</span>
+                    <span class="dialogue-suffix">│</span>
+                </div>
+            </div>
+            
+            <div class="static-text" id="static-display" style="display: none;"></div>
+            <div class="list-model" id="ascii-display" style="display: none;"></div>
+            <div class="aux-display" id="aux-display" style="display: none;"></div>
+            
+            <div class="response-controls" id="response-controls" style="display: none;">
+                <button class="control-btn yes-btn" onclick="sendResponse('s')">
+                    <span class="text-green">S</span>im
+                </button>
+                <button class="control-btn no-btn" onclick="sendResponse('n')">
+                    <span class="text-red">N</span>ão
+                </button>
+            </div>
+            
+            <div class="name-input-area" id="name-input-area" style="display: none;">
+                <label for="name-input">Digite seu nome aqui:</label>
+                <input type="text" id="name-input" maxlength="20" placeholder="Nome" />
+                <button onclick="submitName()">Enviar</button>
+            </div>
+            
+            <div class="sound-indicator" id="sound-indicator">🔊</div>
+            
+            <div class="loading-screen" id="loading-screen">
+                <div class="loading-content">
+                    <div class="loading-expression">[ ▀ ¸ ▀]</div>
+                    <div class="loading-text">Carregando diálogo do BOH...</div>
+                </div>
+            </div>
+            
+            <script src="dialogue/js/boh_dialogue.js"></script>
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const dialogue = new BOHDialogue();
+                    dialogue.start();
+                });
+            </script>
+        </body>
+        </html>
+        EOF
+        
+    - name: Setup Pages
+      uses: actions/configure-pages@v3
+      
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v2
+      with:
+        path: './static_site'
+
+  deploy:
+    environment:
+      name: github-pages
+      url: \${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2

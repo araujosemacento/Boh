@@ -1,0 +1,42 @@
+# GitHub Pages Configuration
+
+# Configurações para o Jekyll (usado pelo GitHub Pages)
+# Este arquivo previne que o Jekyll processe automaticamente os arquivos
+
+# Permitir arquivos que começam com underscore
+include:
+  - _*
+
+# Não processar estes diretórios/arquivos
+exclude:
+  - "*.py"
+  - "*.pyc"
+  - "__pycache__/"
+  - "manage.py"
+  - "db.sqlite3"
+  - "requirements.txt"
+  - "README.md"
+  - ".gitignore"
+  - ".github/"
+  - "build_static.py"
+  - "deploy_helper.py"
+  - "boh/"
+  - "dialogue/migrations/"
+  - "dialogue/admin.py"
+  - "dialogue/apps.py"
+  - "dialogue/models.py"
+  - "dialogue/tests.py"
+  - "dialogue/views.py"
+  - "dialogue/urls.py"
+  - "dialogue/boh_core.py"
+
+# Configurações do site
+title: "BOH - Diálogo Interativo"
+description: "Uma aplicação interativa educativa sobre estruturas de dados"
+baseurl: ""
+url: ""
+
+# Não usar Jekyll para processar o site
+# O GitHub Actions já gera os arquivos estáticos
+plugins: []
+theme: null

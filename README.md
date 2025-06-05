@@ -112,3 +112,154 @@ cd "c:\Users\Suzuma\Documents\scripts\python\Boh"
 python manage.py runserver
 # Acesse: http://127.0.0.1:8000
 ```
+
+---
+
+## 🌐 Deploy no GitHub Pages
+
+Este projeto está configurado para deploy automático no GitHub Pages através do GitHub Actions.
+
+### 📋 Pré-requisitos
+
+1. **Repositório no GitHub** com os arquivos do projeto
+2. **GitHub Pages habilitado** nas configurações do repositório
+3. **Actions habilitado** nas configurações do repositório
+
+### 🚀 Deploy Automático
+
+O deploy acontece automaticamente quando você:
+
+1. Faz push para a branch `ghpage`
+2. Cria um Pull Request para `ghpage`
+3. Executa manualmente o workflow
+
+### 📁 Arquivos de Configuração
+
+- **`.gitignore`** - Ignora arquivos desnecessários (cache Python, banco de dados, etc.)
+- **`.github/workflows/deploy.yml`** - Workflow do GitHub Actions
+- **`requirements.txt`** - Dependências Python
+- **`build_static.py`** - Script para gerar versão estática localmente
+
+### 🔧 Como Configurar
+
+1. **Habilitar GitHub Pages:**
+   - Vá em `Settings` > `Pages` no seu repositório
+   - Em `Source`, selecione `GitHub Actions`
+
+2. **Fazer Push do Código:**
+   ```bash
+   # Criar e mudar para a branch ghpage
+   git checkout -b ghpage
+   
+   # Adicionar e committar os arquivos
+   git add .
+   git commit -m "Setup GitHub Pages deployment"
+   
+   # Fazer push da branch ghpage
+   git push origin ghpage
+   ```
+
+3. **Verificar Deploy:**
+   - Vá em `Actions` no seu repositório
+   - Acompanhe o progresso do workflow
+   - Após concluído, acesse `https://[seu-usuario].github.io/[nome-do-repo]`
+
+### 🧪 Teste Local do Build Estático
+
+Para testar a versão estática localmente:
+
+```bash
+# Gerar arquivos estáticos
+python build_static.py
+
+# Servir localmente
+python -m http.server 8000 --directory static_site
+
+# Acesse: http://localhost:8000
+```
+
+### 🎯 O que Acontece no Deploy
+
+1. **Build Process:**
+   - Instala Python e dependências
+   - Coleta arquivos estáticos do Django
+   - Gera HTML estático da aplicação
+   - Copia recursos (CSS, JS, assets)
+
+2. **Deploy Process:**
+   - Configura GitHub Pages
+   - Faz upload dos arquivos estáticos
+   - Publica no domínio do GitHub Pages
+
+### 🔍 Troubleshooting
+
+- **Deploy falhou?** Verifique os logs em `Actions`
+- **Página não carrega?** Verifique se o GitHub Pages está habilitado
+- **CSS/JS não funciona?** Verifique os caminhos dos arquivos estáticos
+
+### 🌿 Fluxo de Trabalho com Branches
+
+Este projeto usa duas branches principais:
+
+- **`main`** - Desenvolvimento e código fonte
+- **`ghpage`** - Deploy para GitHub Pages
+
+#### Workflow Recomendado
+
+1. **Desenvolvimento na branch main:**
+   ```bash
+   git checkout main
+   # Faça suas alterações...
+   git add .
+   git commit -m "Implementar nova funcionalidade"
+   git push origin main
+   ```
+
+2. **Deploy para GitHub Pages:**
+   ```bash
+   # Mudar para branch ghpage
+   git checkout ghpage
+   
+   # Fazer merge das alterações da main
+   git merge main
+   
+   # Push para acionar o deploy
+   git push origin ghpage
+   ```
+
+3. **Deploy direto (alternativo):**
+   ```bash
+   # Fazer push direto para ghpage (irá acionar o deploy)
+   git push origin main:ghpage
+   ```
+
+#### 🛠️ Script Helper para Deploy
+
+Para facilitar o processo, use o script `deploy_helper.py`:
+
+```bash
+# Deploy automático
+python deploy_helper.py deploy
+
+# Verificar status
+python deploy_helper.py status
+
+# Ver ajuda
+python deploy_helper.py help
+```
+
+O script automaticamente:
+- ✅ Verifica alterações pendentes
+- ✅ Muda para branch `ghpage`
+- ✅ Faz merge das alterações
+- ✅ Executa push para acionar deploy
+- ✅ Retorna à branch original
+
+### 📝 Personalização
+
+Para modificar o processo de build, edite:
+- `.github/workflows/deploy.yml` - Configuração do workflow
+- `build_static.py` - Script de geração estática
+- `requirements.txt` - Dependências Python
+
+---
