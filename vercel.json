@@ -1,9 +1,5 @@
 {
-  "version": 2,  "functions": {
-    "api/wsgi.py": {
-      "runtime": "python3.9"
-    }
-  },
+  "version": 2,
   "rewrites": [
     {
       "source": "/api/(.*)",
