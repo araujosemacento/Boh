@@ -23,7 +23,33 @@ def index(request):
 @csrf_exempt
 def api_dialogue(request):
     """API unificada para gerenciar o diálogo com BOH!"""
-    if request.method == "POST":
+    if request.method == "GET":
+        # Endpoint de saúde/teste para verificação de conectividade
+        boh = BOHCore()
+        return JsonResponse(
+            {
+                "status": "healthy",
+                "message": "BOH Dialogue API está funcionando",
+                "available_actions": [
+                    "get_all_data",
+                    "get_dialogue_item",
+                    "advance_step",
+                    "set_user_name",
+                    "colorize_arrows",
+                    "get_list_model",
+                    "get_aux_art",
+                    "get_expression",
+                    "save_state",
+                    "reset",
+                ],
+                "dialogue_steps": len(boh.dialogue_sequence),
+                "expressions": len(boh.expressions),
+                "list_models": len(boh.list_models),
+                "aux_art": len(boh.aux_art),
+            }
+        )
+
+    elif request.method == "POST":
         try:
             data = json.loads(request.body)
             action = data.get("action")

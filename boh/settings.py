@@ -59,11 +59,12 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-# CORS Settings para permitir comunicação com GitHub Pages
+# CORS Settings para permitir comunicação com GitHub Pages e desenvolvimento local
 CORS_ALLOWED_ORIGINS = [
-    "https://suzuma.github.io",  # Substitua pelo seu username
-    "http://localhost:3000",
-    "http://127.0.0.1:8000",
+    "https://suzuma.github.io",  # GitHub Pages
+    "http://localhost:3000",  # Desenvolvimento frontend
+    "http://127.0.0.1:8000",  # Desenvolvimento Django local
+    "http://localhost:8000",  # Desenvolvimento Django local alternativo
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -80,15 +81,9 @@ CORS_ALLOWED_HEADERS = [
     "x-requested-with",
 ]
 
-MIDDLEWARE = [
-    "django.middleware.security.SecurityMiddleware",
-    "django.contrib.sessions.middleware.SessionMiddleware",
-    "django.middleware.common.CommonMiddleware",
-    "django.middleware.csrf.CsrfViewMiddleware",
-    "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "django.contrib.messages.middleware.MessageMiddleware",
-    "django.middleware.clickjacking.XFrameOptionsMiddleware",
-]
+# CORS para desenvolvimento - permite qualquer origem em DEBUG mode
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
 
 ROOT_URLCONF = "boh.urls"
 
