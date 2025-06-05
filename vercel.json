@@ -1,15 +1,17 @@
 {
-  "version": 2,
-  "builds": [
+  "version": 2,  "builds": [
     {
       "src": "api/wsgi.py",
-      "use": "@vercel/python"
+      "use": "@vercel/python",
+      "config": {
+        "legacy": true
+      }
     }
   ],
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/wsgi.py"
+      "source": "/api/(.*)",
+      "destination": "/api/wsgi.py"
     }
   ],
   "headers": [

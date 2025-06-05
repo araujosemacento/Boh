@@ -31,7 +31,7 @@ ALLOWED_HOSTS = [
     "127.0.0.1",
     ".vercel.app",
     ".github.io",
-    "suzuma.github.io",  # Substitua pelo seu username do GitHub
+    "araujosemacento.github.io",  # Substitua pelo seu username do GitHub
 ]
 
 
@@ -61,7 +61,7 @@ MIDDLEWARE = [
 
 # CORS Settings para permitir comunicação com GitHub Pages e desenvolvimento local
 CORS_ALLOWED_ORIGINS = [
-    "https://suzuma.github.io",  # GitHub Pages
+    "https://araujosemacento.github.io",  # GitHub Pages
     "http://localhost:3000",  # Desenvolvimento frontend
     "http://127.0.0.1:8000",  # Desenvolvimento Django local
     "http://localhost:8000",  # Desenvolvimento Django local alternativo
