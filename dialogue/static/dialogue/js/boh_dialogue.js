@@ -219,11 +219,16 @@ class BOHDialogue {
       console.error('Erro ao processar step:', error);
     }
   }
-
   /**
    * Executa um item específico do diálogo
    */
   async executeDialogueItem(item) {
+    // CORREÇÃO: Evita execução sobrepostas se já estiver processando
+    if (this.isTyping) {
+      console.log('Ignorando execução sobrepostas - já está digitando');
+      return;
+    }
+
     console.log('Executando item:', item);
 
     // Atualiza expressão se especificada
@@ -341,7 +346,6 @@ class BOHDialogue {
       }
     }
   }
-
   /**
    * Processa item de laughter (risada)
    */
@@ -350,47 +354,72 @@ class BOHDialogue {
     const count = item.count || 5;
     const delay = item.delay || 100;
 
+    // CORREÇÃO: Acumula o texto da risada em uma string para evitar múltiplas animações
+    let fullLaughText = '';
     for (let i = 0; i < count; i++) {
-      await this.typeText(laughText, 50);
-      await this.wait(delay);
+      fullLaughText += laughText;
       if (i < count - 1) {
-        // Adiciona espaço entre risadas
-        if (this.elements.dialogueText) {
-          this.elements.dialogueText.innerHTML += " ";
-        }
+        fullLaughText += " ";
       }
     }
-  }
-  /**
+
+    // Digita tudo de uma vez
+    await this.typeText(fullLaughText, 50);
+  }/**
    * Digita texto com efeito de máquina de escrever
    * Mimetiza o comportamento do talk() do _Boh.py
    */
   async typeText(text, speed = 100) {
     return new Promise((resolve) => {
+      // CORREÇÃO 1: Cancela qualquer animação em andamento
+      if (this.isTyping) {
+        if (this.currentTimeout) {
+          clearTimeout(this.currentTimeout);
+          this.currentTimeout = null;
+        }
+      }
+
       if (this.isPaused) {
         this.currentTimeout = setTimeout(() => this.typeText(text, speed).then(resolve), 100);
         return;
       }
 
+      // CORREÇÃO 2: Define estado de digitação ANTES de qualquer operação assíncrona
       this.isTyping = true;
+
       const textElement = this.elements.dialogueText;
       if (!textElement) {
         console.error('Elemento dialogue-text não encontrado!');
+        this.isTyping = false; // Reset estado em caso de erro
         resolve();
         return;
       }
 
+      // CORREÇÃO 3: Limpa o conteúdo anterior imediatamente
+      textElement.innerHTML = '';
+
       // Coloriza setas se necessário
       this.colorizeText(text).then((colorizedText) => {
-        textElement.innerHTML = '';
-        let i = 0;
+        // CORREÇÃO 4: Verifica se ainda deve continuar (pode ter sido cancelado)
+        if (!this.isTyping) {
+          resolve();
+          return;
+        }
 
+        let i = 0;
         // Converte o texto colorizado em array de caracteres (como no Python)
         const chars = Array.from(colorizedText);
 
         const typeNextChar = () => {
+          // CORREÇÃO 5: Sempre verifica se foi pausado ou cancelado
           if (this.isPaused) {
             this.currentTimeout = setTimeout(typeNextChar, 100);
+            return;
+          }
+
+          // CORREÇÃO 6: Verifica se ainda está no estado de digitação
+          if (!this.isTyping) {
+            resolve();
             return;
           }
 
@@ -410,12 +439,20 @@ class BOHDialogue {
             i++;
             this.currentTimeout = setTimeout(typeNextChar, speed);
           } else {
+            // CORREÇÃO 7: Reset estado ao finalizar
             this.isTyping = false;
+            this.currentTimeout = null;
             resolve();
           }
         };
 
         typeNextChar();
+      }).catch((error) => {
+        // CORREÇÃO 8: Reset estado em caso de erro
+        console.error('Erro ao colorizar texto:', error);
+        this.isTyping = false;
+        this.currentTimeout = null;
+        resolve();
       });
     });
   }
@@ -600,11 +637,15 @@ class BOHDialogue {
       this.elements.dialogueText.innerHTML = `<span class="error">${message}</span>`;
     }
   }
-
   /**
    * Avança para o próximo passo
    */
   advanceStep() {
+    // CORREÇÃO: Evita avanços múltiplos se já estiver digitando
+    if (this.isTyping) {
+      return;
+    }
+
     this.currentStep++;
     setTimeout(() => this.processCurrentStep(), 100);
   }
@@ -728,13 +769,17 @@ class BOHDialogue {
     this.isPaused = !this.isPaused;
 
     if (this.isPaused) {
+      // Ao pausar: para qualquer digitação e áudio em andamento
+      this.isTyping = false;
       if (this.currentTimeout) {
         clearTimeout(this.currentTimeout);
+        this.currentTimeout = null;
       }
-      // Para o canal de áudio ao pausar
       this.stopAudioChannel();
+      console.log('⏸️ Pausado - pressione espaço para continuar do início');
     } else {
-      // Retoma a partir do estado atual
+      // Ao despausar: SEMPRE reinicia a fala atual do início para reavaliação
+      console.log('▶️ Retomando do início para reavaliação...');
       this.processCurrentStep();
     }
 
@@ -757,13 +802,16 @@ class BOHDialogue {
    * Reseta o diálogo
    */
   reset() {
+    // CORREÇÃO: Para qualquer digitação em andamento
+    this.isTyping = false;
+
     this.currentStep = 0;
     this.userName = '';
     this.isPaused = false;
-    this.isTyping = false;
     this.isWaitingForResponse = false;
     this.isWaitingForName = false;
 
+    // CORREÇÃO: Limpa todos os timeouts
     if (this.currentTimeout) {
       clearTimeout(this.currentTimeout);
       this.currentTimeout = null;
