@@ -1,3 +1,17 @@
 {
-  "version": 3
+  "version": 3,
+  "routes": [
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    }
+  ],
+  "functions": {
+    "api/**": {
+      "runtime": "python3.9"
+    }
+  }
 }
