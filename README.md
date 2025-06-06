@@ -1,81 +1,38 @@
-# Boh app
+# sv
 
-## Run the app
+Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
 
-### uv
+## Creating a project
 
-Run as a desktop app:
+If you're seeing this, you've probably already done this step. Congrats!
 
-```
-uv run flet run
-```
+```bash
+# create a new project in the current directory
+npx sv create
 
-Run as a web app:
-
-```
-uv run flet run --web
+# create a new project in my-app
+npx sv create my-app
 ```
 
-### Poetry
+## Developing
 
-Install dependencies from `pyproject.toml`:
+Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
 
-```
-poetry install
-```
+```bash
+npm run dev
 
-Run as a desktop app:
-
-```
-poetry run flet run
+# or start the server and open the app in a new browser tab
+npm run dev -- --open
 ```
 
-Run as a web app:
+## Building
 
-```
-poetry run flet run --web
-```
+To create a production version of your app:
 
-For more details on running the app, refer to the [Getting Started Guide](https://flet.dev/docs/getting-started/).
-
-## Build the app
-
-### Android
-
-```
-flet build apk -v
+```bash
+npm run build
 ```
 
-For more details on building and signing `.apk` or `.aab`, refer to the [Android Packaging Guide](https://flet.dev/docs/publish/android/).
+You can preview the production build with `npm run preview`.
 
-### iOS
-
-```
-flet build ipa -v
-```
-
-For more details on building and signing `.ipa`, refer to the [iOS Packaging Guide](https://flet.dev/docs/publish/ios/).
-
-### macOS
-
-```
-flet build macos -v
-```
-
-For more details on building macOS package, refer to the [macOS Packaging Guide](https://flet.dev/docs/publish/macos/).
-
-### Linux
-
-```
-flet build linux -v
-```
-
-For more details on building Linux package, refer to the [Linux Packaging Guide](https://flet.dev/docs/publish/linux/).
-
-### Windows
-
-```
-flet build windows -v
-```
-
-For more details on building Windows package, refer to the [Windows Packaging Guide](https://flet.dev/docs/publish/windows/).
+> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
