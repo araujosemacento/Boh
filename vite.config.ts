@@ -5,4 +5,11 @@ import { svelte } from '@sveltejs/vite-plugin-svelte'
 export default defineConfig({
   base: process.env.NODE_ENV === 'production' ? '/boh/' : '/',
   plugins: [svelte()],
+  server: {
+    cors: {
+      origin: process.env.NODE_ENV === "production" ? "https://araujosemacento.github.io*" : "http://localhost/*",
+      methods: ['GET', 'POST', 'PUT'],
+      allowedHeaders: ['Content-Type', 'Authorization']
+    }
+  }
 })

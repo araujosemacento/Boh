@@ -1,6 +1,6 @@
 <script lang="ts">
   // @ts-ignore
-  import Windowbar from "/src/lib/Windowbar.svelte";
+  import Windowbar from "./lib/Windowbar.svelte";
 </script>
 
 <main>
