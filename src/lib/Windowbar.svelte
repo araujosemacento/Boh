@@ -1,9 +1,6 @@
-<script lang="ts">
-  $: innerWidth = 0;
-  $: innerHeight = 0;
+<script>
+  const { innerWidth, innerHeight } = $props();
 </script>
-
-<svelte:window bind:innerWidth bind:innerHeight />
 
 <div class="window-bar">
   <div class="window-icons">
@@ -11,7 +8,12 @@
       <div class="window-button" style="--window-button-bg: {color};"></div>
     {/each}
   </div>
-  <span id="window-title" style="--title-width: {innerWidth * 0.5}px">
+  <span
+    id="window-title"
+    style="--title-width: {innerWidth / innerHeight > 1.6
+      ? innerWidth * 0.75
+      : innerWidth * 0.5}px"
+  >
     Boh {#if innerWidth / innerHeight > 0.45}
       {#if innerWidth > innerHeight}em: Uma conversa sobre estruturas e dados{/if}
       | [ ▀ v ▀]{/if}</span
@@ -24,7 +26,7 @@
     flex-direction: row;
     width: 100%;
     align-items: center;
-    background-color: rgba(85, 85, 85, 0.6);
+    background-color: #3339;
     max-height: 10vmin;
     border-top-left-radius: inherit;
     border-top-right-radius: inherit;
@@ -75,6 +77,7 @@
     #window-title {
       left: 50%;
       right: auto;
+      min-width: var(--title-width, 1%);
       transform: translateX(-50%);
       text-align: center;
     }
