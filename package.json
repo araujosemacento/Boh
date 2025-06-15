@@ -1,0 +1,34 @@
+{
+  "name": "boh",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/check": "^0.9.4",
+    "@astrojs/svelte": "^7.1.0",
+    "@tailwindcss/vite": "^4.1.10",
+    "@types/node": "^24.0.1",
+    "@types/tailwindcss": "^3.1.0",
+    "astro": "^5.9.3",
+    "svelte": "^5.34.3",
+    "tailwind": "^4.0.0",
+    "typescript": "^5.8.3"
+  },
+  "devDependencies": {
+    "@astrojs/tailwind": "^6.0.2",
+    "@lucide/svelte": "^0.515.0",
+    "autoprefixer": "^10.4.21",
+    "clsx": "^2.1.1",
+    "daisyui": "^5.0.43",
+    "tailwind-merge": "^3.3.1",
+    "tailwind-variants": "^1.0.0",
+    "tailwindcss": "^4.1.10",
+    "tw-animate-css": "^1.3.4"
+  },
+  "types": "@/types.d.ts"
+}
